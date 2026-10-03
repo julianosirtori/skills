@@ -1,0 +1,27 @@
+{
+  "name": "julianosirtori-skills",
+  "owner": {
+    "name": "Juliano Sirtori",
+    "url": "https://github.com/julianosirtori"
+  },
+  "description": "Agent Skills by Juliano Sirtori. Each skill is a plain SKILL.md folder that also works in OpenCode, Codex, Cursor, Gemini CLI and other agents.",
+  "plugins": [
+    {
+      "name": "mac-cleanup",
+      "source": "./",
+      "strict": false,
+      "description": "Analyze and safely free up disk space on macOS: measures what uses storage, cleans only caches that rebuild themselves, finds leftovers of uninstalled apps and guides the removals that need your judgment.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Juliano Sirtori",
+        "url": "https://github.com/julianosirtori"
+      },
+      "homepage": "https://github.com/julianosirtori/skills/tree/main/skills/mac-cleanup",
+      "repository": "https://github.com/julianosirtori/skills",
+      "license": "MIT",
+      "keywords": ["macos", "disk-space", "cleanup", "storage", "caches"],
+      "category": "productivity",
+      "skills": ["./skills/mac-cleanup"]
+    }
+  ]
+}
