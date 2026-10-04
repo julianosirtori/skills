@@ -13,6 +13,7 @@ any other agent that reads `SKILL.md`. The repo is also a
 | Skill | What it does |
 |---|---|
 | [mac-cleanup](skills/mac-cleanup) | Analyzes and safely frees disk space on macOS. Measures what uses storage, cleans only caches that rebuild themselves, finds leftovers of uninstalled apps, and walks you through the removals that need your judgment (WhatsApp, Photos, iCloud Drive, Homebrew, Xcode, Docker...). Never deletes your data without asking, and sends anything that is not a cache to the Trash. |
+| [squad](skills/squad) | Runs a feature, bug fix or refactor through a squad of subagents. **Product** writes the spec with numbered acceptance criteria. **UI/UX** designs flows, every screen state, copy and accessibility using your design system. **Dev** plans, codes and tests. **QA** verifies each criterion independently, with evidence. A **Tech Lead** validates the code and the process. The roles hand off through written artifacts in `.squad/<feature>/` and loop until bugs are fixed. The skill stops to ask you only when a decision is yours. |
 
 ## Install
 
