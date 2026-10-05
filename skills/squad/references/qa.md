@@ -63,8 +63,9 @@ do. Criteria tagged (manual) in the spec go straight to that list.
    outcome, or only that a function was called? Would they fail if the feature
    broke? At medium or large size, sanity-check *one* key test. Temporarily
    break the behavior it guards, confirm the test fails, then restore the file
-   exactly; `git diff` must show none of your edits afterwards. Note weak or
-   missing tests.
+   exactly; `git diff` must show none of your edits afterwards. At medium and
+   large size a code reviewer is reading the code at the same time, so restore
+   the file right after the test run. Note weak or missing tests.
 4. **Exercise the real thing.** Passing tests don't prove the feature works. Use
    it the way a user would:
    - **Web**: start the dev server and use browser automation if it's available.
@@ -161,6 +162,8 @@ Append `## Round <n>`:
 - Retest each fixed bug with its original steps. Mark it Fixed, Still failing
   or Reopened.
 - Run the checks again and regression-test around the files the fix changed.
+  That includes fixes for code review findings (R-n): re-run the criteria
+  whose code they touched.
 - Add any new bugs with new IDs. IDs are never reused.
 - Repeat the full AC matrix with current results, so the last round stands on
   its own.

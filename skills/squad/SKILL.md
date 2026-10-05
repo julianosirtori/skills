@@ -1,21 +1,21 @@
 ---
 name: squad
-description: Run a feature, bug fix or refactor through a product squad of subagents. Product writes the spec and acceptance criteria, UI/UX designs flows, states, copy and accessibility, Dev plans, codes and tests, QA independently verifies it against the criteria, and a Tech Lead validates everything before it is called done. Includes written handoffs, fix loops between roles and a final report. Use this whenever the user asks for this chain of roles or any part of it ("chama o agente de produto, depois ux, dev, qa e o tech lead valida", "passa isso pelo squad", "faz com o time completo", "spec, design, implementação e review"), wants a feature built end to end with QA and review, or wants one of these roles on the current work ("pede pro QA testar", "tech lead revisa o que foi feito", "escreve a spec antes de codar"), even if they never say "squad".
+description: Run a feature, bug fix or refactor through a product squad of subagents. Product writes the spec and acceptance criteria, UI/UX designs flows, states, copy and accessibility, Dev plans, codes and tests, QA independently verifies it against the criteria while a code reviewer reviews the diff, and a Tech Lead validates everything before it is called done. Includes written handoffs, fix loops between roles and a final report. Use this whenever the user asks for this chain of roles or any part of it ("chama o agente de produto, depois ux, dev, qa e o tech lead valida", "passa isso pelo squad", "faz com o time completo", "spec, design, implementação e review"), wants a feature built end to end with QA and review, or wants one of these roles on the current work ("pede pro QA testar", "tech lead revisa o que foi feito", "escreve a spec antes de codar"), even if they never say "squad".
 license: MIT
 compatibility: Best in agents with subagents (Claude Code, OpenCode, Codex and similar); otherwise runs the roles in sequence. scripts/project-context.sh needs bash and git, and uses node, python3 or jq when present.
 metadata:
   author: julianosirtori
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Squad
 
 Build software the way a good cross-functional team does. Someone owns the
 problem, someone owns the experience, someone builds it, someone tries to break
-it, and someone senior signs off. Each role runs as a separate subagent with its
-own brief. Reviews then come from fresh eyes instead of from the author grading
-their own work. That independence is the main reason to use this skill, so
-protect it.
+it, someone reads the code with fresh eyes, and someone senior signs off. Each
+role runs as a separate subagent with its own brief. Reviews then come from
+fresh eyes instead of from the author grading their own work. That independence
+is the main reason to use this skill, so protect it.
 
 Talk to the user and write the artifacts in the user's language. Code,
 identifiers and commit messages follow the repository's conventions.
@@ -23,11 +23,11 @@ identifiers and commit messages follow the repository's conventions.
 ## The flow
 
 ```text
-request ─► 0 Context ─► 1 Product ─► 2 UI/UX ─► 3 Dev ─► 4 QA ─► 5 Tech Lead ─► report
-           (you)         spec          design     code     verify    validate
-                           │              │         ▲        │          │
-                           └─ questions ──┘         ├─ bugs ─┘          │
-                              to the user           └──── changes ──────┘
+request ─► 0 Context ─► 1 Product ─► 2 UI/UX ─► 3 Dev ─┬─► 4 QA ──────┬─► 5 Tech Lead ─► report
+           (you)         spec          design   code   └─► 4 Review ──┘    validate
+                           │              │       ▲             │              │
+                           └─ questions ──┘       ├─ bugs, R-n ─┘              │
+                              to the user         └────────── changes ─────────┘
 ```
 
 | # | Role | Brief | Deliverable | Owns |
@@ -37,7 +37,12 @@ request ─► 0 Context ─► 1 Product ─► 2 UI/UX ─► 3 Dev ─► 4 Q
 | 2 | UI/UX | `references/ux.md` | `02-ux.md` | flows, screens, states, copy, accessibility |
 | 3 | Developer | `references/dev.md` | code + `03-dev.md` | how: plan, implementation, tests, checks |
 | 4 | QA | `references/qa.md` | `04-qa.md` (+ test files) | evidence that each AC holds, plus bugs (B-n) |
+| 4 | Code reviewer | `references/code-review.md` | `04-review.md` | the code, line by line: correctness, security, fit, tests (R-n) |
 | 5 | Tech Lead | `references/tech-lead.md` | `05-tech-lead.md` | final verdict, findings (T-n) |
+
+QA and the code reviewer both run after Dev, in parallel. The reviewer runs at
+medium and large size only. At small size the Tech Lead does the code review
+itself (see Size and budget).
 
 The acceptance criteria IDs are the thread that ties the roles together. UX maps
 screens to them, Dev maps code and tests to them, QA builds its matrix from them,
@@ -63,7 +68,7 @@ code and then review it yourself, nobody independent has checked it.
 ## 0. Set up the run
 
 1. **Pick the track and size** (tables below). Tell the user in one line, e.g.
-   "Feature, size medium: Product → UX → Dev → QA → Tech Lead."
+   "Feature, size medium: Product → UX → Dev → QA ∥ Code review → Tech Lead."
 2. **Create the run folder** at the project root: `.squad/<slug>/`, with a short
    kebab-case slug for the feature (`order-filters`, `fix-login-timeout`). If
    that folder already exists, this is a resume (see Resuming and failures).
@@ -108,12 +113,15 @@ code and then review it yourself, nobody independent has checked it.
 
 | Track | When | Roles | What changes |
 |---|---|---|---|
-| **feature** | new capability or behavior change | all five | the default flow |
-| **bugfix** | something is broken | Product (triage) → UX if the fix changes UI → Dev → QA → TL | Product writes expected vs actual, repro and impact. Dev reproduces the bug with a failing test before fixing it. QA confirms the repro is gone and checks around it. |
-| **refactor** | tech debt, no behavior change | Product (goal and constraints, short) → Dev → QA → TL | The criteria say behavior is unchanged, plus the measurable goal. QA focuses on parity. The TL review is heavier. |
+| **feature** | new capability or behavior change | all roles | the default flow |
+| **bugfix** | something is broken | Product (triage) → UX if the fix changes UI → Dev → QA ∥ Review → TL | Product writes expected vs actual, repro and impact. Dev reproduces the bug with a failing test before fixing it. QA confirms the repro is gone and checks around it. |
+| **refactor** | tech debt, no behavior change | Product (goal and constraints, short) → Dev → QA ∥ Review → TL | The criteria say behavior is unchanged, plus the measurable goal. QA focuses on parity. The code review is the heavier part: by the reviewer at medium and large size, by the TL at small size. |
 | **spec** | "só planeja", "spec antes de codar" | Product → UX → Dev (plan only) → TL (plan review) | no code is written |
-| **review** | "revisa o que eu fiz", an existing diff, branch or PR | QA → TL | No Product phase. QA infers criteria from the request, the PR description and the commits, and labels them as inferred. The work to review is the user's existing changes. The snapshot lists those as "already modified", so write the review scope explicitly in `00-context.md`: the uncommitted files and/or `git diff <default-branch>...HEAD`. |
+| **review** | "revisa o que eu fiz", an existing diff, branch or PR | QA ∥ Review → TL | No Product phase. QA infers criteria from the request, the PR description and the commits, and labels them as inferred. The work to review is the user's existing changes. The snapshot lists those as "already modified", so write the review scope explicitly in `00-context.md`: the uncommitted files and/or `git diff <default-branch>...HEAD`. |
 | **single role** | "chama só o QA" | that role | It still uses its brief and the run folder. |
+
+`QA ∥ Review` means the two run in parallel, and the Review part applies only at
+medium and large size.
 
 Skip UI/UX when the change has no user-facing surface. When the surface is an
 API, CLI, SDK or error messages, UX reviews the developer experience instead.
@@ -135,9 +143,9 @@ limits.
 
 | Size | Typically | Shape of the run |
 |---|---|---|
-| small | ≤ ~5 files, no new screen, no data or contract change | short artifacts: ≤ 8 criteria, about 1 page per document |
-| medium | a new screen or endpoint, several files | the full templates |
-| large | several screens or modules, data model or contract changes, auth, payments | full templates, plus a plan review before coding |
+| small | ≤ ~5 files, no new screen, no data or contract change | short artifacts: ≤ 8 criteria, about 1 page per document. No separate code reviewer: the Tech Lead does the code review. |
+| medium | a new screen or endpoint, several files | the full templates, and a code reviewer in parallel with QA |
+| large | several screens or modules, data model or contract changes, auth, payments | full templates, a code reviewer in parallel with QA, plus a plan review before coding |
 
 Two rules apply at every size:
 
@@ -148,8 +156,10 @@ Two rules apply at every size:
   short manual check for the user. A two-minute check by a person is cheaper
   than a 100k-token harness.
 - **Don't redo the previous role's work.** The Tech Lead spot-checks QA's
-  evidence; it doesn't re-run all of QA's testing. QA runs the checks fresh, but
-  it doesn't redesign the test plan Product already wrote as criteria.
+  evidence; it doesn't re-run all of QA's testing. It checks that the code
+  review findings were resolved; it doesn't redo the line-by-line review. QA
+  runs the checks fresh, but it doesn't redesign the test plan Product already
+  wrote as criteria.
 
 If an artifact clearly overshoots its budget, don't pass the bloat downstream.
 Tell the next role which criteria are the core and which are best effort, or ask
@@ -161,11 +171,12 @@ overkill and offer to do it directly. Run the squad anyway if the user wants it.
 ## 1–5. Running each role
 
 Run the roles one at a time, because each role reads the previous role's
-artifact. In Claude Code, use the `general-purpose` subagent type for every
-role. Each one writes its own file, and Dev and QA also run commands and edit
-code or tests. Subagents may run in the background. Wait for the completion
-notification before starting the next role, and don't poll for the artifact:
-the file can exist before the role is done with it.
+artifact. The one exception is QA and the code reviewer (see below). In Claude
+Code, use the `general-purpose` subagent type for every role. Each one writes
+its own file, and Dev and QA also run commands and edit code or tests.
+Subagents may run in the background. Wait for the completion notification
+before starting the next role, and don't poll for the artifact: the file can
+exist before the role is done with it.
 
 If `00-context.md` lists custom agents for a role (e.g. `.claude/agents/qa.md`),
 use them instead, because they carry the team's conventions. Still give them
@@ -200,6 +211,27 @@ After each role finishes:
    bloqueante".
 4. Check the gates.
 
+### QA and code review in parallel
+
+At medium and large size, start QA and the code reviewer together, in the same
+message, once Dev is done. Neither one edits production code, so they don't
+conflict. They both read `01`–`03`, and neither reads the other's report.
+First, save what the reviewer will review. QA may add test files, or briefly
+break a file to check a test, and none of that belongs in the review:
+
+```bash
+mkdir -p .squad/<slug>/scratch
+git -C <root> status --porcelain > .squad/<slug>/scratch/review-status.txt
+git -C <root> diff <base> > .squad/<slug>/scratch/review.diff
+```
+
+On the review track, save the scope from `00-context.md` instead, e.g.
+`git diff <default-branch>...HEAD`. Wait for both roles to finish. Then send
+QA's open bugs and the reviewer's open findings to Dev in a single fix round
+(see Fix loops).
+
+At small size, run QA alone. The Tech Lead does the code review.
+
 ### Gates: when to stop and ask the user
 
 Stop and ask (use the question tool if the agent has one, e.g. AskUserQuestion)
@@ -233,19 +265,25 @@ implementation.
 
 ### Fix loops
 
-- **QA verdict FAIL** (an open blocker or major bug): run Dev for a fix round with
-  those bug IDs. Then run QA for a retest round covering the fixed bugs, plus a
-  regression check around the files that changed. Repeat up to **3** QA rounds.
-  Minor bugs can go into the same fix round when they are cheap. Never start a
-  full round only for minor bugs or nits. One exception: when the open minor
-  findings have tiny, safe fixes (a few lines each), you may run one short Dev
-  micro-round for them before the report. Re-run the project's checks after
-  it, but skip the full QA round. Everything else becomes a follow-up.
+- **QA verdict FAIL or code review CHANGES REQUESTED** (an open Blocker or
+  Major): run Dev for one fix round with the B-n and R-n IDs together. Then run
+  QA for a retest round covering the fixed bugs, plus a regression check around
+  the files that changed, including the files changed for R-n. Repeat up to
+  **3** QA rounds.
+  Minor bugs and findings can go into the same fix round when they are cheap.
+  Never start a full round only for minor bugs or nits. One exception: when the
+  open minor findings have tiny, safe fixes (a few lines each), you may run one
+  short Dev micro-round for them before the report. Re-run the project's checks
+  after it, but skip the full QA round. Everything else becomes a follow-up.
+- **The reviewer runs once.** The Tech Lead checks that each R-n was resolved.
+  Run the reviewer again, with a fresh snapshot, only if a fix round reworked a
+  large part of the change (for example, a Blocker forced a different approach).
 - **Tech Lead CHANGES REQUESTED**: run Dev for the T-n findings. Then run QA for a
   short regression round (checks plus the affected criteria). Then run the Tech
   Lead to re-review the changes. Repeat up to **2** TL rounds.
 - **Disputed findings**: if Dev marks a finding "Disputed", the reviewer who
-  raised it decides in the next round. If it is a product trade-off, the user
+  raised it decides in the next round. Disputed R-n go to the Tech Lead, since
+  the code reviewer doesn't run again. If it is a product trade-off, the user
   decides.
 - **The spec is wrong**: if Dev or QA finds the spec contradictory or infeasible,
   don't let the developer improvise a product decision. Send it back to Product
@@ -276,7 +314,7 @@ crash, timeout):
 - The project's checks pass (format, lint, typecheck, tests, build, whichever
   apply), or any failure was shown to exist before the squad started.
 - No blocker or major bug is open from QA, and no blocker or major finding is
-  open from the Tech Lead.
+  open from the code review or the Tech Lead.
 - The Tech Lead verdict is APPROVED or APPROVED WITH FOLLOW-UPS.
 
 ## Final report
@@ -288,7 +326,7 @@ Close with:
 
 <2–4 sentences: what was built and how it behaves>
 
-**Verdict:** Tech Lead <verdict> · QA <verdict> (<n>/<total> AC PASS<, n NOT VERIFIED>) · rounds: QA <n>, TL <n>
+**Verdict:** Tech Lead <verdict> · QA <verdict> (<n>/<total> AC PASS<, n NOT VERIFIED>) · Code review <verdict, n findings | by the TL (small)> · rounds: QA <n>, TL <n>
 **Checks:** <only the checks this project has, e.g. lint ✅ · tests ✅ (<n>) · build ✅; "none" if it has none>
 **Changes:** <n> files (+<a>/−<b>): <the 3–5 that matter>. New files: <list them; they must be included in the commit>
 **Decisions and assumptions:** <the few the user would plausibly change, at most 5; the rest are in status.md>
@@ -313,7 +351,8 @@ If the agent can't spawn subagents, run the roles yourself, one at a time:
 - Re-read the role's brief before each phase, and write the same artifacts.
 - Finish each phase completely before starting the next. No coding during the
   spec.
-- For QA and Tech Lead, review the work as if someone else wrote it. Read the
-  diff from `git diff`, not from memory, and run every check again. Self-review
-  is the weak point of this mode, so be deliberately adversarial.
+- Run QA, then the code review (at medium and large size), then the Tech Lead.
+  For these phases, review the work as if someone else wrote it. Read the diff
+  from `git diff`, not from memory, and run every check again. Self-review is
+  the weak point of this mode, so be deliberately adversarial.
 - Say in the final report that the roles ran in a single context.

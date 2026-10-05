@@ -98,6 +98,15 @@ the failure already existed instead of just asserting it. For example, run the
 same check on the base commit in a temporary `git worktree`; JS projects need
 their dependencies installed there too.
 
+## 5. Read your own diff
+
+Before you hand off, read the whole change the way a reviewer will: `git diff
+<base-commit>` plus every new file. Look for debug logs, commented-out code,
+TODOs with no matching note, unrelated edits, names that no longer fit after
+the change, and design states that never made it into the code. Fix what you
+find and re-run the checks it affects. A few minutes here saves a whole fix
+round later.
+
 ## Deliverable: `03-dev.md`
 
 ```markdown
@@ -132,9 +141,9 @@ their dependencies installed there too.
 
 ## Fix rounds
 
-In a fix round you get IDs: B-n from QA and T-n from the Tech Lead. Fix those,
-plus anything trivially related. Run the checks again, then append to
-`03-dev.md`:
+In a fix round you get IDs: B-n from QA, R-n from the code review and T-n from
+the Tech Lead. Fix those, plus anything trivially related. Run the checks again,
+then append to `03-dev.md`:
 
 ```markdown
 ## Fix round <n>
