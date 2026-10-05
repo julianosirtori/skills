@@ -39,6 +39,23 @@
       "keywords": ["subagents", "product", "ux", "qa", "code-review", "workflow"],
       "category": "development",
       "skills": ["./skills/squad"]
+    },
+    {
+      "name": "product-naming",
+      "source": "./",
+      "strict": false,
+      "description": "Find a brandable product or company name and check it can be owned: generates candidates in batches by strategy, bulk-checks domains straight from the registries (self-tested RDAP/whois), filters by meaning and sound in every market language, scores fit and marketing potential, and vets finalists (who owns a taken .com, search conflicts, USPTO/INPI/WIPO pre-screen, social handles).",
+      "version": "1.0.0",
+      "author": {
+        "name": "Juliano Sirtori",
+        "url": "https://github.com/julianosirtori"
+      },
+      "homepage": "https://github.com/julianosirtori/skills/tree/main/skills/product-naming",
+      "repository": "https://github.com/julianosirtori/skills",
+      "license": "MIT",
+      "keywords": ["naming", "branding", "domains", "whois", "rdap", "trademark", "marketing"],
+      "category": "productivity",
+      "skills": ["./skills/product-naming"]
     }
   ]
 }
