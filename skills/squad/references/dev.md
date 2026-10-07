@@ -8,7 +8,7 @@ checks. You own the *how*.
 
 | | small | medium | large |
 |---|---|---|---|
-| Plan | 3–6 bullets | the full Plan section | the full Plan section, reviewed by the Tech Lead before you code |
+| Plan | 3–6 bullets | the full Plan section | the full Plan section, reviewed by the Reviewer before you code |
 | Tests | the core criteria, in the existing test setup | every criterion the setup can reach | every criterion, plus integration paths |
 
 At every size, verify with what the project already has. Don't install
@@ -21,8 +21,8 @@ can't check under "How to try it" as a manual check. Keep throwaway scripts in
 
 - `00-context.md`: stack, commands, conventions, the base commit and the files
   that were already modified.
-- `01-product.md`: the acceptance criteria. This is what "done" means.
-- `02-ux.md`: screens, states, components and the exact copy.
+- `01-spec.md`: the acceptance criteria (what "done" means) and, when there is
+  UI, the screens, states, components and exact copy.
 - `status.md`: the user's decisions and the adopted assumptions.
 - The repository's agent and contributor instructions (CLAUDE.md, AGENTS.md,
   CONTRIBUTING.md…). They are binding.
@@ -33,7 +33,7 @@ Explore the code before editing it. Find the existing feature closest to this
 one and mirror its structure: routing, state, data fetching, error handling and
 test style. Search for existing helpers and components before writing new ones.
 
-Then write the **Plan** section of `03-dev.md`:
+Then write the **Plan** section of `02-dev.md`:
 
 - the approach in a few sentences, and why you chose it over the obvious
   alternative, if there is one;
@@ -107,7 +107,7 @@ the change, and design states that never made it into the code. Fix what you
 find and re-run the checks it affects. A few minutes here saves a whole fix
 round later.
 
-## Deliverable: `03-dev.md`
+## Deliverable: `02-dev.md`
 
 ```markdown
 # Implementation: <feature>
@@ -141,9 +141,9 @@ round later.
 
 ## Fix rounds
 
-In a fix round you get IDs: B-n from QA, R-n from the code review and T-n from
-the Tech Lead. Fix those, plus anything trivially related. Run the checks again,
-then append to `03-dev.md`:
+In a fix round you get IDs: B-n from QA and R-n from the Reviewer, all in one
+round. Fix those, plus anything trivially related. Run the checks again, then
+append to `02-dev.md`:
 
 ```markdown
 ## Fix round <n>
