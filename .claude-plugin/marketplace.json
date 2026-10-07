@@ -56,6 +56,23 @@
       "keywords": ["naming", "branding", "domains", "whois", "rdap", "trademark", "marketing"],
       "category": "productivity",
       "skills": ["./skills/product-naming"]
+    },
+    {
+      "name": "handoff",
+      "source": "./",
+      "strict": false,
+      "description": "End a session and continue in a fresh one without losing context: writes a self-contained handoff (goal, verified state, next steps, decisions, dead ends, user preferences, files to read, running processes, git snapshot) to .handoffs/, copies a short start prompt to the clipboard, and resumes by checking the handoff against the current code and git state.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Juliano Sirtori",
+        "url": "https://github.com/julianosirtori"
+      },
+      "homepage": "https://github.com/julianosirtori/skills/tree/main/skills/handoff",
+      "repository": "https://github.com/julianosirtori/skills",
+      "license": "MIT",
+      "keywords": ["handoff", "context", "session", "resume", "compact", "workflow"],
+      "category": "productivity",
+      "skills": ["./skills/handoff"]
     }
   ]
 }
