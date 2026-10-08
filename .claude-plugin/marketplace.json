@@ -27,8 +27,8 @@
       "name": "squad",
       "source": "./",
       "strict": false,
-      "description": "Run a feature, bug fix or refactor through a lean squad of subagents: Spec (acceptance criteria plus flows, states, copy and accessibility), Developer (plan, code, tests), QA (independent verification with evidence) and a Reviewer (line-by-line and whole-change review, final verdict), with sized runs, written handoffs and capped fix loops.",
-      "version": "2.0.0",
+      "description": "Run a feature, bug fix or refactor through a fast squad: a strong orchestrator writes the spec, contracts and a task board, fans implementation and tests out to up to 10 parallel Haiku workers, integrates, runs the checks and reviews, with Haiku QA and an independent Reviewer for large or risky changes, sized runs and capped fix loops.",
+      "version": "3.0.0",
       "author": {
         "name": "Juliano Sirtori",
         "url": "https://github.com/julianosirtori"
@@ -36,7 +36,7 @@
       "homepage": "https://github.com/julianosirtori/skills/tree/main/skills/squad",
       "repository": "https://github.com/julianosirtori/skills",
       "license": "MIT",
-      "keywords": ["subagents", "product", "ux", "qa", "code-review", "workflow"],
+      "keywords": ["subagents", "parallel", "haiku", "product", "ux", "qa", "code-review", "workflow"],
       "category": "development",
       "skills": ["./skills/squad"]
     },
