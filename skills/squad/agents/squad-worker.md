@@ -1,3 +1,12 @@
+---
+name: squad-worker
+description: Worker for the squad skill. Does one fully specified build, test or fix task from a squad plan, edits only the files its task owns and replies in at most 8 lines. Launched by the squad orchestrator; not for general use.
+model: haiku
+effort: medium
+tools: Read, Edit, Write, Bash, Grep, Glob
+maxTurns: 40
+---
+
 # Worker
 
 You do one task from the squad's plan: build code, write tests, or fix a

@@ -5,7 +5,7 @@ license: MIT
 compatibility: Best in agents with subagents and per-subagent model choice (Claude Code, OpenCode, Codex and similar); otherwise runs the roles in sequence. scripts/project-context.sh needs bash and git, and uses node, python3 or jq when present.
 metadata:
   author: julianosirtori
-  version: "3.1.0"
+  version: "3.2.0"
 ---
 
 # Squad
@@ -46,7 +46,7 @@ request ─► 0 Setup ─► 1 Plan ─────► 2 Build waves ───�
 | Role | Model | Brief | Writes |
 |---|---|---|---|
 | Orchestrator (you) | session | this file; `references/plan.md` when planning, `references/code-review.md` when reviewing | `00-context.md`, `01-plan.md`, `status.md`, the report |
-| Worker (build, test, fix) | `haiku` | `references/worker.md` | code and tests in the files its task owns |
+| Worker (build, test, fix) | `haiku` | `agents/squad-worker.md` | code and tests in the files its task owns |
 | QA | `haiku` | `references/qa.md` | `03-qa-<area>.md`, evidence |
 | Reviewer (large or risky only) | `sonnet` | `references/code-review.md` | `03-review.md` |
 
@@ -74,8 +74,8 @@ model and keep the same structure.
 - **Keep your own context lean.** You re-read everything in your context on
   every turn, so your turns and what you load are most of the run's cost.
   Read a brief only when you reach its phase (`plan.md` to plan,
-  `code-review.md` to review); `worker.md` and `qa.md` are for the agents, so
-  don't open them. Put independent tool calls in one message (write the plan,
+  `code-review.md` to review); the worker brief and `qa.md` are for the
+  agents, so don't open them. Put independent tool calls in one message (write the plan,
   the status file and the contract files together; launch a wave in the same
   message). Review from the diff and the check output, not by re-reading every
   file.
@@ -237,9 +237,20 @@ Before wave 1, write the contract files the plan lists as yours (types,
 interfaces, stubs, i18n keys), so tasks in the same wave can build against them
 without waiting for each other.
 
-Launch every task of a wave **in a single message**, at most 10 at a time. In
-Claude Code, use the `general-purpose` subagent type with `model: "haiku"`,
-unless `00-context.md` lists a matching custom agent. Wait for the completion
+Launch every task of a wave **in a single message**, at most 10 at a time.
+
+- **Which agent.** In Claude Code, use the `squad-worker` agent when it's
+  installed: `squad:squad-worker` from the plugin, `squad-worker` when linked
+  into `.claude/agents/`. Its system prompt is the worker brief and its model is
+  `haiku`, so skip line 1 of the prompt below. Otherwise use the
+  `general-purpose` subagent type with `model: "haiku"`, or a matching custom
+  agent that `00-context.md` lists.
+- **Effort per task.** Pass `effort` on each call. Use `low` for mechanical
+  tasks (wiring, moving code, renames, putting a given contract in place),
+  leave the default `medium` for logic and tests, and use `high` for a fix that
+  already failed once on `haiku`.
+
+Wait for the completion
 notifications; don't poll the files. Don't schedule wakeups or heartbeats
 (`ScheduleWakeup`, cron) while you wait: notifications re-invoke you on their
 own, and a forgotten wakeup fires a stray "continue" turn after the run is over.
@@ -251,7 +262,7 @@ Prompt for each worker (fill every field; a missing field becomes a guess):
 You are a Worker in a product squad. Task <T-n> (<build | test | fix>) for: <one-line feature>.
 Write any notes in <user's language>.
 
-1. Read your rules first: <skill-dir>/references/worker.md
+1. Read your rules first: <skill-dir>/agents/squad-worker.md
 2. Project root: <abs-path>. Plan: <abs-path>/.squad/<slug>/01-plan.md. Read
    the Contracts section and the task <T-n> row; read the AC it lists.
 3. You own ONLY these files (create or edit): <list>
@@ -294,7 +305,8 @@ After a wave finishes:
    exact error output, the file, what's expected. Fix tasks for different files
    go out together in one message.
 4. **Escalation.** A task that fails twice on `haiku` gets one retry on `sonnet`
-   with both failed attempts summarized. If that fails too, stop and tell the
+   (same agent, with `model: "sonnet"` on the call) with both failed attempts
+   summarized. If that fails too, stop and tell the
    user what's stuck, or do it yourself if it's small and say so in the report.
 5. Read the next wave's tasks again against what was actually built, adjust
    them, then launch.
@@ -319,7 +331,7 @@ Then, at the same time:
 - **Reviewer (large or risky)**, `sonnet`, brief `references/code-review.md`,
   writes `03-review.md`.
 Prompt QA and the Reviewer like a worker, with their brief instead of
-`worker.md`: the run folder, the files to read (`00-context.md`, `01-plan.md`,
+the worker brief: the run folder, the files to read (`00-context.md`, `01-plan.md`,
 `status.md`, the snapshot), the deliverable path, and for QA its area, its AC
 and its port. Ask for a reply of at most 8 lines: verdict, Blockers and Majors
 with IDs, and the path written.

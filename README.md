@@ -49,6 +49,14 @@ git clone https://github.com/julianosirtori/skills.git ~/Developer/skills
 ln -s ~/Developer/skills/skills/mac-cleanup ~/.claude/skills/mac-cleanup
 ```
 
+`squad` also ships a Haiku worker agent. The plugin install registers it on its
+own; with a manual install, link it into Claude Code's agents folder too (without
+it, squad falls back to general-purpose Haiku subagents):
+
+```bash
+ln -s ~/Developer/skills/skills/squad/agents/squad-worker.md ~/.claude/agents/squad-worker.md
+```
+
 | Agent | User-level skills folder | Project-level |
 |---|---|---|
 | Claude Code | `~/.claude/skills/` | `.claude/skills/` |

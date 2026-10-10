@@ -27,8 +27,8 @@
       "name": "squad",
       "source": "./",
       "strict": false,
-      "description": "Run a feature, bug fix or refactor through a fast squad: a strong orchestrator writes the spec, contracts and a task board, fans implementation and tests out to up to 10 parallel Haiku workers, integrates, runs the checks and reviews, with Haiku QA and an independent Reviewer for large or risky changes, sized runs and capped fix loops.",
-      "version": "3.0.0",
+      "description": "Run a feature, bug fix or refactor through a fast squad: a strong orchestrator writes the spec, contracts and a task board, fans implementation and tests out to up to 10 parallel Haiku workers (a bundled squad-worker agent), integrates, runs the checks and reviews, with Haiku QA and an independent Reviewer for large or risky changes, sized runs (small work goes solo) and capped fix loops.",
+      "version": "3.2.0",
       "author": {
         "name": "Juliano Sirtori",
         "url": "https://github.com/julianosirtori"
@@ -38,7 +38,8 @@
       "license": "MIT",
       "keywords": ["subagents", "parallel", "haiku", "product", "ux", "qa", "code-review", "workflow"],
       "category": "development",
-      "skills": ["./skills/squad"]
+      "skills": ["./skills/squad"],
+      "agents": ["./skills/squad/agents/squad-worker.md"]
     },
     {
       "name": "product-naming",
