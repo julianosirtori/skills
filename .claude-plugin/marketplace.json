@@ -28,7 +28,7 @@
       "source": "./",
       "strict": false,
       "description": "Run a feature, bug fix or refactor through a fast crew: the orchestrator writes the spec, contracts and a task board, fans implementation and tests out to up to 10 parallel Haiku workers (a bundled crew-worker agent), integrates, runs the checks and reviews, with Haiku QA and an independent Reviewer for large or risky changes, sized runs (small work goes solo) and capped fix loops.",
-      "version": "4.0.0",
+      "version": "4.1.0",
       "author": {
         "name": "Juliano Sirtori",
         "url": "https://github.com/julianosirtori"

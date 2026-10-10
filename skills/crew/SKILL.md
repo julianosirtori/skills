@@ -5,7 +5,7 @@ license: MIT
 compatibility: Best in agents with subagents and per-subagent model choice (Claude Code, OpenCode, Codex and similar); otherwise runs the roles in sequence. scripts/project-context.sh needs bash and git, and uses node, python3 or jq when present.
 metadata:
   author: julianosirtori
-  version: "4.0.0"
+  version: "4.1.0"
 ---
 
 # Crew
@@ -40,7 +40,7 @@ identifiers and commit messages follow the repository's conventions.
 request ─► 0 Setup ─► 1 Plan ─────► 2 Build waves ─────► 3 Integrate ─► 4 Verify ──────────► report
            (you)      (you)         T1 T2 … T10          (you)          you: review
                       spec+design   haiku, parallel      checks once    ∥ QA (haiku, medium+)
-                      contracts     build ∥ test         fix tasks      ∥ Reviewer (sonnet, large/risky)
+                      contracts     build ∥ test         fix tasks      ∥ Reviewer (sonnet; opus if risky)
                       task board                                         └─ one fix wave, max 2
 ```
 
@@ -49,7 +49,7 @@ request ─► 0 Setup ─► 1 Plan ─────► 2 Build waves ───�
 | Orchestrator (you) | session | this file; `references/plan.md` when planning, `references/code-review.md` when reviewing | `00-context.md`, `01-plan.md`, `status.md`, the report |
 | Worker (build, test, fix) | `haiku` | `agents/crew-worker.md` | code and tests in the files its task owns |
 | QA | `haiku` | `references/qa.md` | `03-qa-<area>.md`, evidence |
-| Reviewer (large or risky only) | `sonnet` | `references/code-review.md` | `03-review.md` |
+| Reviewer (large or risky only) | `sonnet`; `opus` on risky changes | `references/code-review.md` | `03-review.md` |
 
 The acceptance criteria IDs (AC-n) and task IDs (T-n) tie everything together.
 
@@ -137,7 +137,7 @@ model and keep the same structure.
 | **refactor** | no behavior change | Plan (goal, parity criteria, the mechanical steps per file) → waves → integrate (the existing tests are the main gate) → review |
 | **spec** | "só planeja", "spec antes de codar" | Plan only. At large size, the Reviewer reviews it. No code. |
 | **review** | "revisa o que eu fiz", an existing diff, branch or PR | You review with `references/code-review.md`, plus Haiku QA at medium and large size, plus the Reviewer at large or risky. QA infers the criteria from the request, the PR and the commits, and labels them inferred. |
-| **single role** | "chama só o QA", "tech lead revisa" | that role, with its brief and the run folder. A tech lead or reviewer request is you reviewing, or the `sonnet` Reviewer if the user wants a second opinion. |
+| **single role** | "chama só o QA", "tech lead revisa" | that role, with its brief and the run folder. A tech lead or reviewer request is you reviewing, or the Reviewer subagent (`sonnet`, `opus` on risky changes) if the user wants a second opinion. |
 
 If the user already brought a spec or design, complete it inside `01-plan.md`;
 don't start over.
@@ -187,8 +187,11 @@ scales the same way: 0 at small, one per independent runnable area above that,
 up to 3.
 
 A change touching auth, permissions, payments or existing data counts as
-**risky** at any size: show the plan to the user before wave 1 and run the
-Reviewer at the end.
+**risky** at any size: no solo path, show the plan to the user before wave 1,
+and run the Reviewer on `opus` (or the strongest model you can pick) on the plan
+before wave 1 and on the final diff. Cheaper models are fine where a mistake
+shows up in a test or a check; a risky change is where a mistake can hide and
+cost the most, so the strongest model reads it once, end to end.
 
 At every size:
 
@@ -329,7 +332,8 @@ Then, at the same time:
   there is one. One QA agent per independent area (a screen, an endpoint group),
   up to 3, each with its own port for any dev server. Brief: `references/qa.md`.
   Skip QA when there's nothing runnable beyond the tests you already ran; say so.
-- **Reviewer (large or risky)**, `sonnet`, brief `references/code-review.md`,
+- **Reviewer (large or risky)**, `sonnet`, or `opus` when the change is risky,
+  brief `references/code-review.md`,
   writes `03-review.md`.
 Prompt QA and the Reviewer like a worker, with their brief instead of
 the worker brief: the run folder, the files to read (`00-context.md`, `01-plan.md`,
