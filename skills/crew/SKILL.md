@@ -1,21 +1,22 @@
 ---
-name: squad
-description: Run a feature, bug fix or refactor through a fast product squad. You orchestrate on the strongest model, writing one plan (acceptance criteria, UI/UX states and copy, contracts, a task board with file ownership). Then you fan implementation and tests out to parallel Haiku workers (as many as there are independent tasks, up to 10), integrate, run the checks, review the diff and send fix tasks back. Haiku QA and an independent Reviewer join at larger or riskier sizes. Use this whenever the user asks for this chain of roles or any part of it ("chama o agente de produto, depois ux, dev, qa e o tech lead valida", "passa isso pelo squad", "faz com o time completo", "paraleliza com vários agentes"), wants a feature built end to end with tests and review, or wants one role on the current work ("pede pro QA testar", "tech lead revisa o que foi feito", "escreve a spec antes de codar"), even if they never say "squad".
+name: crew
+description: Run a feature, bug fix or refactor through a fast crew sized to the work. Small changes go solo: tests first, implement, review the diff. Bigger ones get one plan (acceptance criteria, UI/UX states and copy, contracts, a task board with file ownership), parallel Haiku workers (up to 10) for code and tests, then integration, checks, a diff review and fix tasks, with Haiku QA and an independent Reviewer at larger or riskier sizes. Use this whenever the user asks for this chain of roles or any part of it ("chama o agente de produto, depois ux, dev, qa e o tech lead valida", "passa isso pelo crew", "passa pelo squad", "faz com o time completo", "paraleliza com vários agentes"), wants a feature built end to end with tests and review, or wants one role on the current work ("pede pro QA testar", "tech lead revisa o que foi feito", "escreve a spec antes de codar"), even if they never say "crew".
 license: MIT
 compatibility: Best in agents with subagents and per-subagent model choice (Claude Code, OpenCode, Codex and similar); otherwise runs the roles in sequence. scripts/project-context.sh needs bash and git, and uses node, python3 or jq when present.
 metadata:
   author: julianosirtori
-  version: "3.2.0"
+  version: "4.0.0"
 ---
 
-# Squad
+# Crew
 
 Build software the way a fast team does: one senior person decides what to
 build and how to split it, many hands build the pieces at the same time, and the
 senior person integrates and checks the result before it counts as done.
 
-- **You are the orchestrator and tech lead**, on the session model (best on the
-  strongest one, e.g. Opus). You own the thinking: the spec, the design, the
+- **You are the orchestrator and tech lead**, on the session model. Sonnet is
+  enough for most runs; Opus, or Sonnet with an Opus advisor, pays off when the
+  work is hard or ambiguous. You own the thinking: the spec, the design, the
   split into tasks, the contracts between them, integration, the checks and the
   review.
 - **Workers build and test**, on a cheap, fast model (`haiku`). Each gets one
@@ -26,9 +27,9 @@ senior person integrates and checks the result before it counts as done.
   Reviewer checks your plan and the code too.
 
 Speed comes from parallel workers and from fewer cold starts: no separate Spec
-or Dev agent re-reads what you already know. Cost stays flat because the
-expensive model writes plans and reviews, while the bulk of the tokens (reading
-code, writing code, running tests) goes to the cheap one.
+or Dev agent re-reads what you already know. Workers are cheap; most of a run's
+cost is your own turns, since each one re-reads your whole context. That is why
+small work goes solo and why your context should stay lean.
 
 Talk to the user and write the artifacts in the user's language. Code,
 identifiers and commit messages follow the repository's conventions.
@@ -46,7 +47,7 @@ request ─► 0 Setup ─► 1 Plan ─────► 2 Build waves ───�
 | Role | Model | Brief | Writes |
 |---|---|---|---|
 | Orchestrator (you) | session | this file; `references/plan.md` when planning, `references/code-review.md` when reviewing | `00-context.md`, `01-plan.md`, `status.md`, the report |
-| Worker (build, test, fix) | `haiku` | `agents/squad-worker.md` | code and tests in the files its task owns |
+| Worker (build, test, fix) | `haiku` | `agents/crew-worker.md` | code and tests in the files its task owns |
 | QA | `haiku` | `references/qa.md` | `03-qa-<area>.md`, evidence |
 | Reviewer (large or risky only) | `sonnet` | `references/code-review.md` | `03-review.md` |
 
@@ -88,31 +89,31 @@ model and keep the same structure.
 1. **Pick the track and size.** Tell the user in one line, e.g. "Feature, size
    medium: plano → 6 tarefas em 2 ondas (haiku) → checks → review ∥ QA." At
    small size, take the solo path (see Size) and skip the rest of this setup.
-2. **Create `.squad/<slug>/`** at the project root, with a short kebab-case slug
+2. **Create `.crew/<slug>/`** at the project root, with a short kebab-case slug
    (`order-filters`, `fix-login-timeout`). If it exists, this is a resume. Add
-   `.squad/` to `.git/info/exclude` unless it's already ignored or the user wants
+   `.crew/` to `.git/info/exclude` unless it's already ignored or the user wants
    the artifacts committed.
 3. **Write `00-context.md`**: the user's request word for word, relevant
    conversation context (constraints, links, decisions, screenshots described in
    words), and the project snapshot:
 
    ```bash
-   bash <skill-dir>/scripts/project-context.sh <project-root> >> .squad/<slug>/00-context.md
+   bash <skill-dir>/scripts/project-context.sh <project-root> >> .crew/<slug>/00-context.md
    ```
 
    The script is read-only. It records the base commit, files already modified
-   before the squad, agent instructions (CLAUDE.md, AGENTS.md…), custom agents,
+   before the crew, agent instructions (CLAUDE.md, AGENTS.md…), custom agents,
    stack, commands, design system and test setup. Add an "Orchestrator notes"
    section for anything it missed, above all the **targeted** commands a worker
    can run fast (one test file, typecheck of one package).
 4. **Check the baseline.** If the tree has unrelated changes, tell the user.
    Workers must not touch them, and the review must not attribute them to the
-   squad. Run the checks once now if they're quick, so you know what was already
+   crew. Run the checks once now if they're quick, so you know what was already
    failing.
 5. **Create `status.md`**:
 
    ```markdown
-   # Squad: <feature>
+   # Crew: <feature>
    Track: feature · Size: medium · Base: <sha> on <branch> · Started: <date>
 
    | Phase | Wave/Round | Result | Notes |
@@ -153,15 +154,15 @@ Size keeps the effort proportional to the change. Pass it to every agent.
 
 ### Small: the solo path
 
-The squad has a fixed cost: run folder, plan, cold-starting workers, integrating
+The crew has a fixed cost: run folder, plan, cold-starting workers, integrating
 their work. On small changes that cost never pays back. Measured on small and
-medium tasks, the full squad matched a solo run's quality at 3–6× the cost and
+medium tasks, the full crew matched a solo run's quality at 3–6× the cost and
 2–4× the time. So at small size, skip the machinery and do the work yourself:
 
 1. Say so in one line ("Bugfix, size small: solo, teste primeiro → correção →
    checks → review").
 2. List the criteria in your head or in one short message, not in a file. No
-   `.squad/` folder, no workers.
+   `.crew/` folder, no workers.
 3. Write the tests first from the criteria and run them to see them fail (for a
    bugfix, the failing test is the reproduction), then implement.
 4. Run the project's checks, then review your own `git diff` with
@@ -169,8 +170,8 @@ medium tasks, the full squad matched a solo run's quality at 3–6× the cost an
    look for the cases you didn't think of.
 5. Report in the short form: what changed, the checks, the assumptions.
 
-Go back to the full squad when the user asks for it explicitly ("faz com o time
-completo", "passa pelo squad com QA"), when the change is risky, or when the work
+Go back to the full crew when the user asks for it explicitly ("faz com o time
+completo", "passa pelo crew com QA"), when the change is risky, or when the work
 turns out bigger than it looked.
 
 ### How many agents
@@ -199,7 +200,7 @@ At every size:
   least one meaningful file or test file. Two lines in one file is one task, or
   glue you write.
 
-If the request is trivial (a typo, one config value), say the squad is overkill
+If the request is trivial (a typo, one config value), say the crew is overkill
 and offer to do it directly.
 
 ## 1. Plan
@@ -239,8 +240,8 @@ without waiting for each other.
 
 Launch every task of a wave **in a single message**, at most 10 at a time.
 
-- **Which agent.** In Claude Code, use the `squad-worker` agent when it's
-  installed: `squad:squad-worker` from the plugin, `squad-worker` when linked
+- **Which agent.** In Claude Code, use the `crew-worker` agent when it's
+  installed: `crew:crew-worker` from the plugin, `crew-worker` when linked
   into `.claude/agents/`. Its system prompt is the worker brief and its model is
   `haiku`, so skip line 1 of the prompt below. Otherwise use the
   `general-purpose` subagent type with `model: "haiku"`, or a matching custom
@@ -259,11 +260,11 @@ If you did schedule one, cancel it before the final report.
 Prompt for each worker (fill every field; a missing field becomes a guess):
 
 ```text
-You are a Worker in a product squad. Task <T-n> (<build | test | fix>) for: <one-line feature>.
+You are a Worker in a crew. Task <T-n> (<build | test | fix>) for: <one-line feature>.
 Write any notes in <user's language>.
 
-1. Read your rules first: <skill-dir>/agents/squad-worker.md
-2. Project root: <abs-path>. Plan: <abs-path>/.squad/<slug>/01-plan.md. Read
+1. Read your rules first: <skill-dir>/agents/crew-worker.md
+2. Project root: <abs-path>. Plan: <abs-path>/.crew/<slug>/01-plan.md. Read
    the Contracts section and the task <T-n> row; read the AC it lists.
 3. You own ONLY these files (create or edit): <list>
    Read but don't edit: <files to mirror, contract files>
@@ -317,9 +318,9 @@ When the last wave integrates cleanly, snapshot the change once so QA's test
 edits don't leak into the review:
 
 ```bash
-mkdir -p .squad/<slug>/scratch
-git -C <root> status --porcelain > .squad/<slug>/scratch/review-status.txt
-git -C <root> diff <base> > .squad/<slug>/scratch/review.diff
+mkdir -p .crew/<slug>/scratch
+git -C <root> status --porcelain > .crew/<slug>/scratch/review-status.txt
+git -C <root> diff <base> > .crew/<slug>/scratch/review.diff
 ```
 
 Then, at the same time:
@@ -374,7 +375,7 @@ with "continue from the current state of your files". Note it in `status.md`.
 ## Final report
 
 ```markdown
-## Squad: <feature>, <DONE | DONE WITH FOLLOW-UPS | BLOCKED>
+## Crew: <feature>, <DONE | DONE WITH FOLLOW-UPS | BLOCKED>
 
 <2–4 sentences: what was built and how it behaves>
 
@@ -385,7 +386,7 @@ with "continue from the current state of your files". Note it in `status.md`.
 **Decisions and assumptions:** <the few the user would plausibly change, at most 5>
 **Follow-ups:** <non-blocking findings>
 **Needs you:** <manual checks for NOT VERIFIED items, migrations, env vars, copy to review…>
-**Artifacts:** .squad/<slug>/
+**Artifacts:** .crew/<slug>/
 ```
 
 Don't commit or push unless the user asks; offer to. For a PR, build the

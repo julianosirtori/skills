@@ -44,8 +44,8 @@ do. Criteria tagged (manual) in the spec go straight to that list.
   git -C <root> diff <base-commit>     # base commit from 00-context.md
   ```
 
-  Ignore `.squad/` and the files listed as already modified before the squad,
-  unless the task board says the squad touched them.
+  Ignore `.crew/` and the files listed as already modified before the crew,
+  unless the task board says the crew touched them.
 
 ## Rules
 

@@ -34,7 +34,7 @@ because they mirror the implementation instead of the spec.
 ## Inputs
 
 - `00-context.md`: conventions, the repository's instruction files (CLAUDE.md,
-  AGENTS.md…), the base commit and the files already modified before the squad.
+  AGENTS.md…), the base commit and the files already modified before the crew.
   On the review track, it also holds the review scope.
 - `01-plan.md`: what the code is supposed to do, the contracts and the task
   board.
@@ -42,8 +42,8 @@ because they mirror the implementation instead of the spec.
   to check, not facts.
 - The change, as the orchestrator saved it: `<run folder>/scratch/review-status.txt`
   (changed and new files) and `<run folder>/scratch/review.diff`. Read new files
-  in full. Ignore `.squad/` and the files that were already modified before the
-  squad started.
+  in full. Ignore `.crew/` and the files that were already modified before the
+  crew started.
 - The surrounding code. A change can be fine locally and wrong globally: it may
   duplicate a helper, bypass a layer or break a caller. Search for callers of
   every function whose signature or behavior changed.

@@ -89,7 +89,7 @@ Done when: <observable result: a test passes, a screen shows X, a command return
 
 <!-- The 3–8 files (or artifacts) the next session should open before touching
      anything, as path:line plus why. Reference specs, plans, ADRs, issues, PRs,
-     .squad/ runs or earlier handoffs by path or URL instead of copying them. -->
+     .crew/ runs or earlier handoffs by path or URL instead of copying them. -->
 
 - `src/feature/thing.ts:42`: <why it matters>
 - `docs/spec.md`: <what it settles>

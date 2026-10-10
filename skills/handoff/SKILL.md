@@ -88,7 +88,7 @@ rules matter most:
 - **Keep the user's voice.** Record their decisions, preferences and
   corrections, and tag each decision *(user)* or *(agent)*. The next session
   must not reopen what the user settled, and may revisit what you assumed.
-- **Reference, don't copy.** Specs, plans, `.squad/` runs, issues, PRs, earlier
+- **Reference, don't copy.** Specs, plans, `.crew/` runs, issues, PRs, earlier
   handoffs and code go in as paths, URLs and `path:line`. Never paste large
   code blocks.
 - **Count the work, not the junk.** Uncommitted files means the files that

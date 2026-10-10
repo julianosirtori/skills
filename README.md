@@ -13,7 +13,7 @@ any other agent that reads `SKILL.md`. The repo is also a
 | Skill | What it does |
 |---|---|
 | [mac-cleanup](skills/mac-cleanup) | Analyzes and safely frees disk space on macOS. Measures what uses storage, cleans only caches that rebuild themselves, finds leftovers of uninstalled apps, and walks you through the removals that need your judgment (WhatsApp, Photos, iCloud Drive, Homebrew, Xcode, Docker...). Never deletes your data without asking, and sends anything that is not a cache to the Trash. |
-| [squad](skills/squad) | Runs a feature, bug fix or refactor through a fast squad. The session model (best on Opus) orchestrates: it writes one plan with numbered acceptance criteria, the UI/UX (flows, every screen state, copy, accessibility), the shared contracts and a task board where each task owns its files. It then fans the implementation and the tests out to parallel **Haiku workers**, as many as the plan has independent tasks (up to 10 per wave), with tests written by a different worker than the code. It integrates each wave, runs the checks once and reviews the diff, while **Haiku QA** agents exercise the real app at medium and large size and an independent **Reviewer** joins for large or risky changes. Findings go back as focused fix tasks, capped at two rounds. Everything is written to `.squad/<feature>/`, and the skill stops to ask you only when a decision is yours. |
+| [crew](skills/crew) | Runs a feature, bug fix or refactor through a fast crew sized to the work. Small changes go solo (tests first, implement, review the diff). For bigger ones the session model orchestrates (Sonnet is enough for most runs; Opus or an Opus advisor for hard work): it writes one plan with numbered acceptance criteria, the UI/UX (flows, every screen state, copy, accessibility), the shared contracts and a task board where each task owns its files. It then fans the implementation and the tests out to parallel **Haiku workers**, as many as the plan has independent tasks (up to 10 per wave), with tests written by a different worker than the code. It integrates each wave, runs the checks once and reviews the diff, while **Haiku QA** agents exercise the real app at medium and large size and an independent **Reviewer** joins for large or risky changes. Findings go back as focused fix tasks, capped at two rounds. A bundled `crew-worker` agent runs the workers on Haiku. Everything is written to `.crew/<feature>/`, and the skill stops to ask you only when a decision is yours. |
 | [product-naming](skills/product-naming) | Finds a brandable name for a product or company that you can actually own. Generates hundreds of candidates in batches by naming strategy and bulk-checks domains straight from the registries (RDAP/whois for .com, .com.br, .ai, .io, .app and more). Every extension is self-tested, so a broken check never reports a taken domain as free. It filters names by meaning, sound and spelling in every market language and scores fit and marketing potential. It then vets the finalists: who owns a taken .com and whether it is for sale, Google autocomplete and search conflicts, a USPTO/INPI/WIPO trademark pre-screen, and social handles. |
 | [handoff](skills/handoff) | Ends a session and continues in a fresh one without losing context. `/handoff <next focus>` checks the real state (git snapshot, diff, checks) and writes a self-contained handoff to `.handoffs/` (kept out of git): goal, state, next steps, decisions and why, dead ends, your preferences, files to read first, running processes and verify commands. It then copies a short start prompt to the clipboard for you to paste after `/clear`. `/handoff resume` loads the newest handoff, checks it against the current code, reports what drifted and picks up the next step. |
 
@@ -49,12 +49,12 @@ git clone https://github.com/julianosirtori/skills.git ~/Developer/skills
 ln -s ~/Developer/skills/skills/mac-cleanup ~/.claude/skills/mac-cleanup
 ```
 
-`squad` also ships a Haiku worker agent. The plugin install registers it on its
+`crew` also ships a Haiku worker agent. The plugin install registers it on its
 own; with a manual install, link it into Claude Code's agents folder too (without
-it, squad falls back to general-purpose Haiku subagents):
+it, crew falls back to general-purpose Haiku subagents):
 
 ```bash
-ln -s ~/Developer/skills/skills/squad/agents/squad-worker.md ~/.claude/agents/squad-worker.md
+ln -s ~/Developer/skills/skills/crew/agents/crew-worker.md ~/.claude/agents/crew-worker.md
 ```
 
 | Agent | User-level skills folder | Project-level |
