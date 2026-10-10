@@ -1,11 +1,11 @@
 ---
 name: crew
-description: Run a feature, bug fix or refactor through a fast crew sized to the work. Small changes go solo: tests first, implement, review the diff. Bigger ones get one plan (acceptance criteria, UI/UX states and copy, contracts, a task board with file ownership), parallel Haiku workers (up to 10) for code and tests, then integration, checks, a diff review and fix tasks, with Haiku QA and an independent Reviewer at larger or riskier sizes. Use this whenever the user asks for this chain of roles or any part of it ("chama o agente de produto, depois ux, dev, qa e o tech lead valida", "passa isso pelo crew", "passa pelo squad", "faz com o time completo", "paraleliza com vários agentes"), wants a feature built end to end with tests and review, or wants one role on the current work ("pede pro QA testar", "tech lead revisa o que foi feito", "escreve a spec antes de codar"), even if they never say "crew".
+description: Run a feature, bug fix or refactor through a fast crew sized to the work. Small or already fully specified, low-risk changes go solo: tests first, implement, review the diff. Bigger ones get one plan (acceptance criteria, UI/UX states and copy, contracts, a task board with file ownership), parallel Haiku workers (up to 10) for code and tests, then integration, checks, a diff review and fix tasks, with Haiku QA and an independent Reviewer at larger or riskier sizes. Use this whenever the user asks for this chain of roles or any part of it ("chama o agente de produto, depois ux, dev, qa e o tech lead valida", "passa isso pelo crew", "passa pelo squad", "faz com o time completo", "paraleliza com vários agentes"), wants a feature built end to end with tests and review, or wants one role on the current work ("pede pro QA testar", "tech lead revisa o que foi feito", "escreve a spec antes de codar"), even if they never say "crew".
 license: MIT
 compatibility: Best in agents with subagents and per-subagent model choice (Claude Code, OpenCode, Codex and similar); otherwise runs the roles in sequence. scripts/project-context.sh needs bash and git, and uses node, python3 or jq when present.
 metadata:
   author: julianosirtori
-  version: "4.1.0"
+  version: "4.2.0"
 ---
 
 # Crew
@@ -33,6 +33,29 @@ small work goes solo and why your context should stay lean.
 
 Talk to the user and write the artifacts in the user's language. Code,
 identifiers and commit messages follow the repository's conventions.
+
+## When the full crew pays off
+
+Decide this first, because it shapes the whole run. On well-specified tasks a
+single agent matched the full crew's quality for less money and time, so the
+crew has to earn its cost. It does when at least one of these holds:
+
+- **A vague or product-level request** ("faz a feature de favoritos no app").
+  The plan's numbered criteria force the states, errors and edge cases to be
+  decided before any code, and show those decisions to the user.
+- **Large work across several screens or modules.** A single agent's context
+  fills up and it loses track; here each worker gets a small task and you
+  integrate.
+- **A risky change** (auth, permissions, payments, existing data). You stop to
+  show the plan, and an `opus` Reviewer reads the plan and the final diff.
+- **The user wants evidence**: QA on the running app, each criterion traced to
+  a test, and a report that can become the PR description.
+
+When none of them holds (a small change, or one the user already specified in
+detail, with the contracts, rules and edge cases, that fits comfortably in one
+context), take the solo path (see Size) and say why in one line, e.g. "Pedido já
+especificado e sem risco: vou solo, o time completo só adicionaria custo." The
+user can still ask for the full crew.
 
 ## The flow
 
@@ -65,7 +88,7 @@ model and keep the same structure.
   improvises.
 - **Maximize safe parallelism.** Split by file ownership, define the shared
   contracts up front, and launch every ready task in one message.
-- **Don't write feature code yourself** (except on the small solo path). You
+- **Don't write feature code yourself** (except on the solo path). You
   may write the shared contract
   files (types, interfaces, i18n keys, route stubs) before the first wave and
   the small glue files after it, since those are plan decisions. If you also
@@ -87,8 +110,9 @@ model and keep the same structure.
 ## 0. Set up the run
 
 1. **Pick the track and size.** Tell the user in one line, e.g. "Feature, size
-   medium: plano → 6 tarefas em 2 ondas (haiku) → checks → review ∥ QA." At
-   small size, take the solo path (see Size) and skip the rest of this setup.
+   medium: plano → 6 tarefas em 2 ondas (haiku) → checks → review ∥ QA." When
+   the full crew doesn't pay off (see above), take the solo path (see Size) and
+   skip the rest of this setup.
 2. **Create `.crew/<slug>/`** at the project root, with a short kebab-case slug
    (`order-filters`, `fix-login-timeout`). If it exists, this is a resume. Add
    `.crew/` to `.git/info/exclude` unless it's already ignored or the user wants
@@ -152,12 +176,14 @@ Size keeps the effort proportional to the change. Pass it to every agent.
 | medium | a new screen or endpoint, several files | 1–2 pages | 3–8, 1–3 waves | you: checks + review ∥ 1–2 Haiku QA agents when there is something runnable to exercise |
 | large | several screens or modules, data or contract changes, auth, payments | full template, Rollout required | 6–10 per wave, several waves | Reviewer reviews the plan before wave 1, then you ∥ QA (up to 3) ∥ Reviewer on the final diff |
 
-### Small: the solo path
+### The solo path
 
 The crew has a fixed cost: run folder, plan, cold-starting workers, integrating
 their work. On small changes that cost never pays back. Measured on small and
 medium tasks, the full crew matched a solo run's quality at 3–6× the cost and
-2–4× the time. So at small size, skip the machinery and do the work yourself:
+2–4× the time. So at small size, and whenever the full crew doesn't pay off
+(see "When the full crew pays off"), skip the machinery and do the work
+yourself:
 
 1. Say so in one line ("Bugfix, size small: solo, teste primeiro → correção →
    checks → review").
