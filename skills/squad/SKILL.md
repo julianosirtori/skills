@@ -5,7 +5,7 @@ license: MIT
 compatibility: Best in agents with subagents and per-subagent model choice (Claude Code, OpenCode, Codex and similar); otherwise runs the roles in sequence. scripts/project-context.sh needs bash and git, and uses node, python3 or jq when present.
 metadata:
   author: julianosirtori
-  version: "3.0.0"
+  version: "3.1.0"
 ---
 
 # Squad
@@ -45,7 +45,7 @@ request ─► 0 Setup ─► 1 Plan ─────► 2 Build waves ───�
 
 | Role | Model | Brief | Writes |
 |---|---|---|---|
-| Orchestrator (you) | session | this file, `references/plan.md`, `references/code-review.md` | `00-context.md`, `01-plan.md`, `status.md`, the report |
+| Orchestrator (you) | session | this file; `references/plan.md` when planning, `references/code-review.md` when reviewing | `00-context.md`, `01-plan.md`, `status.md`, the report |
 | Worker (build, test, fix) | `haiku` | `references/worker.md` | code and tests in the files its task owns |
 | QA | `haiku` | `references/qa.md` | `03-qa-<area>.md`, evidence |
 | Reviewer (large or risky only) | `sonnet` | `references/code-review.md` | `03-review.md` |
@@ -64,12 +64,21 @@ model and keep the same structure.
   improvises.
 - **Maximize safe parallelism.** Split by file ownership, define the shared
   contracts up front, and launch every ready task in one message.
-- **Don't write feature code yourself.** You may write the shared contract
+- **Don't write feature code yourself** (except on the small solo path). You
+  may write the shared contract
   files (types, interfaces, i18n keys, route stubs) before the first wave and
   the small glue files after it, since those are plan decisions. If you also
   write the logic, nobody independent built what you review.
 - **Integrate and check.** Run the project's checks once per wave, not once per
   worker.
+- **Keep your own context lean.** You re-read everything in your context on
+  every turn, so your turns and what you load are most of the run's cost.
+  Read a brief only when you reach its phase (`plan.md` to plan,
+  `code-review.md` to review); `worker.md` and `qa.md` are for the agents, so
+  don't open them. Put independent tool calls in one message (write the plan,
+  the status file and the contract files together; launch a wave in the same
+  message). Review from the diff and the check output, not by re-reading every
+  file.
 - **Keep `status.md` current** so the run can be resumed.
 - **Report faithfully.** A failed check or an unverified criterion goes in the
   report as it is.
@@ -77,7 +86,8 @@ model and keep the same structure.
 ## 0. Set up the run
 
 1. **Pick the track and size.** Tell the user in one line, e.g. "Feature, size
-   medium: plano → 6 tarefas em 2 ondas (haiku) → checks → review ∥ QA."
+   medium: plano → 6 tarefas em 2 ondas (haiku) → checks → review ∥ QA." At
+   small size, take the solo path (see Size) and skip the rest of this setup.
 2. **Create `.squad/<slug>/`** at the project root, with a short kebab-case slug
    (`order-filters`, `fix-login-timeout`). If it exists, this is a resume. Add
    `.squad/` to `.git/info/exclude` unless it's already ignored or the user wants
@@ -137,9 +147,31 @@ Size keeps the effort proportional to the change. Pass it to every agent.
 
 | Size | Typically | Plan | Tasks | Verify |
 |---|---|---|---|---|
-| small | ≤ ~5 files, no new screen, no data or contract change | about 1 page, ≤ 6 AC | 1–3, one wave | you: checks + review + spot-check 1–2 AC. No QA agent. |
-| medium | a new screen or endpoint, several files | 2–3 pages | 3–8, 1–3 waves | you: checks + review ∥ 1–2 Haiku QA agents when there is something runnable to exercise |
+| small | ≤ ~5 files, no new screen, no data or contract change, or fewer than 3 tasks that could run apart | none written: the solo path below | none | you: checks + adversarial review of your own diff |
+| medium | a new screen or endpoint, several files | 1–2 pages | 3–8, 1–3 waves | you: checks + review ∥ 1–2 Haiku QA agents when there is something runnable to exercise |
 | large | several screens or modules, data or contract changes, auth, payments | full template, Rollout required | 6–10 per wave, several waves | Reviewer reviews the plan before wave 1, then you ∥ QA (up to 3) ∥ Reviewer on the final diff |
+
+### Small: the solo path
+
+The squad has a fixed cost: run folder, plan, cold-starting workers, integrating
+their work. On small changes that cost never pays back. Measured on small and
+medium tasks, the full squad matched a solo run's quality at 3–6× the cost and
+2–4× the time. So at small size, skip the machinery and do the work yourself:
+
+1. Say so in one line ("Bugfix, size small: solo, teste primeiro → correção →
+   checks → review").
+2. List the criteria in your head or in one short message, not in a file. No
+   `.squad/` folder, no workers.
+3. Write the tests first from the criteria and run them to see them fail (for a
+   bugfix, the failing test is the reproduction), then implement.
+4. Run the project's checks, then review your own `git diff` with
+   `references/code-review.md` and deliberate suspicion: you're the author, so
+   look for the cases you didn't think of.
+5. Report in the short form: what changed, the checks, the assumptions.
+
+Go back to the full squad when the user asks for it explicitly ("faz com o time
+completo", "passa pelo squad com QA"), when the change is risky, or when the work
+turns out bigger than it looked.
 
 ### How many agents
 
@@ -208,7 +240,10 @@ without waiting for each other.
 Launch every task of a wave **in a single message**, at most 10 at a time. In
 Claude Code, use the `general-purpose` subagent type with `model: "haiku"`,
 unless `00-context.md` lists a matching custom agent. Wait for the completion
-notifications; don't poll the files.
+notifications; don't poll the files. Don't schedule wakeups or heartbeats
+(`ScheduleWakeup`, cron) while you wait: notifications re-invoke you on their
+own, and a forgotten wakeup fires a stray "continue" turn after the run is over.
+If you did schedule one, cancel it before the final report.
 
 Prompt for each worker (fill every field; a missing field becomes a guess):
 

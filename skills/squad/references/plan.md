@@ -21,7 +21,7 @@ merge conflict or a fix round. So decide here.
 | Design | only what changes: one wireframe per changed piece of UI, the states that apply | every affected screen, a states table per screen | every screen and flow |
 | Contracts | inline in the task rows | a Contracts section | a Contracts section, with the files you write before wave 1 |
 | Tasks | 1–3 | 3–8 | 6–10 per wave |
-| Length | **about 1 page** | 2–3 pages | as needed; Rollout required |
+| Length | **about 1 page** | 1–2 pages: criteria, contracts and task board first, since they are what workers read | as needed; Rollout required |
 | Questions | ≤ 2 | ≤ 4 | as needed |
 
 Quality extras beyond the request (detailed accessibility, performance targets,
