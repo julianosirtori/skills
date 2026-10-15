@@ -74,6 +74,23 @@
       "keywords": ["handoff", "context", "session", "resume", "compact", "workflow"],
       "category": "productivity",
       "skills": ["./skills/handoff"]
+    },
+    {
+      "name": "seo-geo",
+      "source": "./",
+      "strict": false,
+      "description": "Improve SEO and visibility in AI chats (ChatGPT, Perplexity, Gemini, AI Overviews, Claude, Copilot): a crawler-eye audit script (robots and CDN blocks per AI bot, JS-only rendering, indexability, metadata, sitemaps, JSON-LD), a versioned prompt set measuring mentions, citations and wrong claims, Search Console quick wins, fixes in the codebase, quotable content rewrites, an off-site plan and a prioritized report.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Juliano Sirtori",
+        "url": "https://github.com/julianosirtori"
+      },
+      "homepage": "https://github.com/julianosirtori/skills/tree/main/skills/seo-geo",
+      "repository": "https://github.com/julianosirtori/skills",
+      "license": "MIT",
+      "keywords": ["seo", "geo", "aeo", "ai-search", "chatgpt", "perplexity", "schema", "robots-txt"],
+      "category": "marketing",
+      "skills": ["./skills/seo-geo"]
     }
   ]
 }
