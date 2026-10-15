@@ -76,6 +76,23 @@
       "skills": ["./skills/handoff"]
     },
     {
+      "name": "pentest",
+      "source": "./",
+      "strict": false,
+      "description": "White-box security audit for your own web app or API: read-only scan plus OWASP Top 10 review of code, auth, deps and headers, with a ranked report and fixes.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Juliano Sirtori",
+        "url": "https://github.com/julianosirtori"
+      },
+      "homepage": "https://github.com/julianosirtori/skills/tree/main/skills/pentest",
+      "repository": "https://github.com/julianosirtori/skills",
+      "license": "MIT",
+      "keywords": ["pentest", "security", "audit", "owasp", "vulnerability", "hardening"],
+      "category": "development",
+      "skills": ["./skills/pentest"]
+    },
+    {
       "name": "seo-geo",
       "source": "./",
       "strict": false,
