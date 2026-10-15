@@ -115,7 +115,7 @@ def fetch(url, ua=BROWSER_UA, max_redirects=8, limit=5_000_000):
                 pass
         charset = headers.get_content_charset() or "utf-8"
         body = raw.decode(charset, errors="replace")
-        return {"status": status, "url": url, "chain": chain, "headers": dict(headers.items()),
+        return {"status": status, "url": url, "chain": chain, "headers": {k.title(): v for k, v in headers.items()},
                 "body": body, "ms": int((time.time() - start) * 1000), "error": None}
     return {"status": None, "url": url, "chain": chain, "headers": {}, "body": "",
             "ms": int((time.time() - start) * 1000), "error": "too many redirects"}
@@ -210,6 +210,8 @@ class PageParser(HTMLParser):
         self.scripts = 0
         self.root_ids = []
         self.times = []
+        self.anchors = []  # (href, rel, text)
+        self._anchor = None
 
     def handle_starttag(self, tag, attrs):
         a = {k.lower(): (v or "") for k, v in attrs}
@@ -225,6 +227,10 @@ class PageParser(HTMLParser):
             self.imgs += 1
             if "alt" not in a:
                 self.imgs_no_alt += 1
+            elif self._anchor is not None and a["alt"]:
+                self._anchor[2].append(a["alt"])
+        elif tag == "a" and a.get("href") is not None:
+            self._anchor = [a["href"], a.get("rel", "").lower(), []]
         elif tag == "time" and a.get("datetime"):
             self.times.append(a["datetime"])
         elif tag in ("div", "main") and a.get("id") in ("root", "app", "__next", "__nuxt", "svelte"):
@@ -239,6 +245,10 @@ class PageParser(HTMLParser):
             self.heading_tag, self.heading_buf = tag, []
 
     def handle_endtag(self, tag):
+        if tag == "a" and self._anchor is not None:
+            href, rel, text = self._anchor
+            self.anchors.append((href, rel, " ".join(" ".join(text).split())[:120]))
+            self._anchor = None
         if tag == "title":
             self.in_title = False
         if tag == "script" and self.in_jsonld:
@@ -259,6 +269,8 @@ class PageParser(HTMLParser):
         if self.skip_depth:
             return
         self.text.append(data)
+        if self._anchor is not None:
+            self._anchor[2].append(data)
         if self.heading_tag:
             self.heading_buf.append(data)
 

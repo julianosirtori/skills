@@ -14,6 +14,7 @@ How to read each `audit.py` finding and fix it. Sections:
 10. Core Web Vitals
 11. llms.txt and Markdown for agents
 12. Framework recipes
+13. Full crawl with crawl.py
 
 ## 1. Crawlers: which bot decides what
 
@@ -430,3 +431,60 @@ blocks bots.
 - Add JSON-LD through the theme or custom code.
 
 When you can't edit the site yourself, give the user exact steps.
+
+## 13. Full crawl with crawl.py
+
+`audit.py` looks closely at a few pages. `crawl.py` walks the whole site and
+finds the problems that only show up across pages:
+
+```bash
+python3 <skill-dir>/scripts/crawl.py https://example.com --max-pages 2000 --out .seo/<domain>/crawl > .seo/<domain>/crawl.txt
+```
+
+**How it crawls:**
+
+- Breadth-first along internal `<a href>` links from the start URL, so the
+  depth recorded is the real click depth.
+- Then it fetches the sitemap URLs the links never reached; those are the
+  orphans.
+- It reads the raw HTML like most AI crawlers, so a link that exists only
+  after JavaScript runs is invisible to it. On a JavaScript-rendered site
+  that is a finding in itself.
+- It obeys robots.txt for `*`. Use `--ignore-robots` only on the user's own
+  site.
+- It defaults to 4 workers and 4 requests per second. Lower `--rate` on
+  small or shared hosting.
+- If a CDN blocks it, try `--ua browser`.
+
+**Reading the output** (`issues.csv` has every row, by severity):
+
+| Issue | What to do |
+|---|---|
+| internal link: HTTP 4xx/5xx | fix or remove the link on each source page; 301 the URL if it had value |
+| internal link redirects / redirect chain | link straight to the final URL; collapse chains to one hop |
+| linked page blocked by robots.txt | unblock it, or stop linking if it is meant to be private |
+| noindex (in the sitemap) | remove it from the sitemap, or remove the noindex if it was a mistake |
+| canonical to a broken, redirected or noindex URL | point it at the live, indexable version |
+| missing / duplicate title or description | write unique ones (bulk table in `references/content.md`) |
+| no H1 in the raw HTML | add one in the server-rendered template |
+| JavaScript-only / thin page | server-render it, or improve, merge or noindex thin pages |
+| duplicate / near-duplicate content | merge into one page with a 301, set a canonical, or make each page distinct |
+| deep page (> 3 clicks) | link it from hubs, categories or the home page |
+| orphan page | link it from related pages, or drop it from the sitemap if it should not exist |
+| indexable page not in the sitemap | add it, unless it should not be indexed |
+| sitemap URL not 200 / redirects | list only final, 200, canonical URLs |
+| only one internal link points here | add contextual links from related pages |
+| hreflang without return link | add the missing reciprocal hreflang |
+| slow HTML response | cache it or fix the server; see section 10 |
+
+**Limits:**
+
+- **INCOMPLETE.** When the output says INCOMPLETE, `--max-pages` was hit
+  before the crawl finished, and orphans are not reported. Raise the limit
+  or crawl one section (start URL `/blog/`).
+- **Faceted navigation and calendars** can create endless URLs. Tracking
+  parameters are already stripped. If the queue grows without end, note the
+  pattern as a finding: it wastes crawl budget for Google too. Then stop.
+- **External links** are checked only with `--check-external`. Sites that
+  block bots answer 403 or 999; the script does not report those as broken.
+

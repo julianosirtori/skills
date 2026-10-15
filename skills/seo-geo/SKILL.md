@@ -1,11 +1,11 @@
 ---
 name: seo-geo
-description: Improve a website's SEO and its visibility in AI chats and answer engines (GEO/AEO) - ChatGPT, Perplexity, Gemini, Google AI Overviews and AI Mode, Claude, Copilot. Audits the site the way crawlers see it with a bundled script (robots.txt and CDN blocks per AI bot, JavaScript-only rendering, indexability, metadata, sitemaps, JSON-LD), measures where assistants mention, cite or misquote the brand with a versioned prompt set, mines Search Console for quick wins, fixes what it can in the codebase, rewrites key pages so they get quoted, plans off-site presence and writes a prioritized report. Use this whenever the user wants more organic traffic, to rank on Google, to show up or be recommended in ChatGPT or other AI chats, to know why an assistant ignores or misquotes them, or an SEO review, even if they never say "SEO" or "GEO" (e.g. "quero aparecer no ChatGPT", "otimiza meu site pros chats", "por que o Perplexity não cita a gente?", "melhora o SEO da landing", "how do I get recommended by AI assistants?").
+description: Improve a website's SEO and its visibility in AI chats and answer engines (GEO/AEO) - ChatGPT, Perplexity, Gemini, Google AI Overviews, Claude, Copilot. Bundled scripts audit the site the way crawlers see it (robots.txt and CDN blocks per AI bot, JavaScript-only rendering, indexability, metadata, JSON-LD), crawl it whole (broken links, redirects, duplicates, orphans, depth, sitemap gaps) and analyze backlink exports (profile, anchors, links to reclaim, competitor link gap). It measures where assistants cite or misquote the brand with a prompt set, mines Search Console, fixes the code, rewrites key pages to be quoted, plans links and off-site presence, and writes a prioritized report. Use it whenever the user wants organic traffic, Google rankings, backlinks, to be recommended in ChatGPT or other AI chats, to know why an assistant ignores or misquotes them, or an SEO review, even without saying "SEO" (e.g. "quero aparecer no ChatGPT", "otimiza meu site pros chats", "analisa meus backlinks").
 license: MIT
-compatibility: scripts/audit.py needs Python 3.8+ (standard library only) and network access. Fixing code needs the site's repository. A browser tool helps check answers in ChatGPT, Perplexity and Gemini and compare raw with rendered HTML. Search Console access (export or API) is optional and valuable.
+compatibility: The scripts (audit.py, crawl.py, backlinks.py) need Python 3.8+, standard library only, and network access. Backlink analysis needs CSV exports (Search Console, Bing Webmaster Tools, Ahrefs, Semrush, Moz). Fixing code needs the site's repository. A browser tool helps check answers in ChatGPT, Perplexity and Gemini and compare raw with rendered HTML. Search Console access (export or API) is optional and valuable.
 metadata:
   author: julianosirtori
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # SEO and GEO
@@ -66,6 +66,9 @@ committed.
 .seo/<domain>/
 ├── brief.md        # step 1 answers
 ├── audit.txt       # audit.py output (audit.json with --json)
+├── crawl.txt       # crawl.py summary; crawl/ holds pages.csv, links.csv, issues.csv
+├── links/          # backlink exports from the user; analysis CSVs from backlinks.py
+├── backlinks.txt   # backlinks.py report
 ├── prompts.md      # versioned prompt portfolio, answers, cited domains
 ├── claims.md       # claim ledger: what assistants get wrong
 ├── gsc.md          # Search Console opportunities (if available)
@@ -128,7 +131,7 @@ Measure before changing anything, so the report can show what moved.
   sources the assistants trust.
 
 The cited third-party domains, classified as owned, earned, community or
-marketplace, are the off-site map for step 7.
+marketplace, are the off-site map for step 8.
 
 ### 3. Technical audit
 
@@ -172,6 +175,26 @@ which bot decides what, and the fix per framework. These matter most:
 - **"no JSON-LD in the raw HTML."** Plugins often inject it with JavaScript.
   Check the rendered page before calling it missing.
 
+**Then crawl the whole site** to find what only shows across pages:
+
+```bash
+python3 <skill-dir>/scripts/crawl.py https://example.com --max-pages 2000 --out .seo/<domain>/crawl > .seo/<domain>/crawl.txt
+```
+
+It follows internal links from the home page, then the sitemap URLs the links
+never reached. It reports:
+
+- broken internal links, with the pages that link to them
+- internal redirects and redirect chains
+- noindex pages in the sitemap, and canonicals pointing to broken URLs
+- missing and duplicate titles, descriptions and H1s
+- thin, JavaScript-only, duplicate and near-duplicate pages
+- click depth, orphans, sitemap gaps, weakly linked pages and broken hreflang
+
+On large sites, start with `--max-pages 500`. If the output says INCOMPLETE,
+raise the limit or crawl one section at a time. `references/technical.md`
+section 13 says how to read and fix each issue.
+
 If the code is in the repo, read it too: the public routes, how metadata is
 generated, whether the sitemap is complete, and any environment-specific
 `noindex` left on in production. With a browser tool, also compare the raw
@@ -188,10 +211,40 @@ Find the opportunity buckets in `references/visibility.md`:
 - decaying pages
 - cannibalization
 
-Save them to `gsc.md`. They often outrank anything else in step 6, because
+Save them to `gsc.md`. They often outrank anything else in step 7, because
 they show real demand the site already almost wins.
 
-### 5. Content audit
+### 5. Backlinks
+
+Ask for whatever link exports the user has:
+
+- the site: Search Console's Links report, Bing Webmaster Tools, Ahrefs
+  Webmaster Tools (free for verified sites), or a paid tool's backlinks
+- each main competitor: a referring-domains export
+
+`references/backlinks.md` says where each one comes from. Then run:
+
+```bash
+python3 <skill-dir>/scripts/backlinks.py links/*.csv --site example.com --brand "Example" \
+  --keywords "money keyword" --competitor rival=links/rival-rd.csv --check-targets \
+  --out .seo/<domain>/links > .seo/<domain>/backlinks.txt
+```
+
+It reports:
+
+- the profile: referring domains, rel mix, which pages earn links
+- the anchor mix (branded, URL, generic, exact-match)
+- patterns: site-wide links, spam-looking domains
+- **links to reclaim:** linked pages that 404 or redirect in chains. These
+  are the quickest win: one 301 each.
+- **the link gap:** domains that link to two or more competitors but not to
+  the site
+
+Cross the gap with the cited domains from step 2: a domain on both lists is
+the top outreach target. Without any export, skip the numbers, say so under
+"Pending checks", and still build the outreach list from the cited domains.
+
+### 6. Content audit
 
 Pick the pages that should answer the step 2 prompts and the step 4 queries:
 home, product or service pages, pricing, comparisons, the main guides. In
@@ -209,14 +262,15 @@ Also list the prompt families that have no page at all.
 patterns, the page types that get cited, what the GEO research actually shows,
 and programmatic-page guardrails.
 
-### 6. Fix
+### 7. Fix
 
 Score each finding on impact (High: blocks discovery or states something false;
 Medium; Low) and effort (Small, Medium, Large), then rank by impact. The order
 that usually holds:
 
 1. Unblock crawlers (robots.txt, CDN bot rules). Remove stray noindex. Fix
-   canonicals, 5xx errors and redirect chains.
+   canonicals, 5xx errors, broken internal links and redirect chains. 301
+   the linked pages that 404 (links to reclaim).
 2. Make the public content render on the server.
 3. Correct wrong or contradictory facts on the site (the claim ledger).
 4. Fix titles, descriptions, H1s, lang/hreflang and the sitemap with honest
@@ -229,13 +283,17 @@ that usually holds:
 
    It states the facts clearly. It is not a promised rich result: Google has
    retired FAQ and HowTo rich results.
-6. Fix content: rewrite key pages, create the missing ones, act on the Search
-   Console opportunities.
+6. Fix content and structure:
+   - rewrite key pages and create the missing ones
+   - act on the Search Console opportunities
+   - merge duplicates
+   - link orphan, deep and weakly linked pages from related pages
 7. Optional: `llms.txt`. Google says it has no effect on Search, and there is
    little evidence that assistants read it. It is useful for developer docs.
    Never present it as the fix.
 
-When the code is in the repo, make changes 1, 2, 4 and 5 directly, as small
+When the code is in the repo, make changes 1, 2, 4 and 5 (and the internal
+links in 6) directly, as small
 commits or a diff the user can review, and run the project's build and checks.
 
 Content changes the brand's voice and claims:
@@ -251,10 +309,15 @@ DNS records (site verification) are handed to the user, never applied.
 
 Without the code, write each fix as a ready-to-paste snippet in the report.
 
-### 7. Off-site plan
+### 8. Links and off-site plan
 
-Assistants recommend what other sites say about a brand. From the cited
-domains in `prompts.md`, list where the brand should appear and does not:
+Search engines rank and assistants recommend based on what other sites say
+about a brand. Build one outreach list from two sources:
+
+- the cited domains in `prompts.md`
+- the link gap and reclaim lists from step 5
+
+List where the brand should appear and does not:
 
 - review platforms
 - the listicles and comparisons that get cited
@@ -265,11 +328,12 @@ domains in `prompts.md`, list where the brand should appear and does not:
 - Wikidata, if notable
 
 Also list the external profiles whose facts disagree with the site.
-`references/visibility.md` has the playbook: open participation, never
-astroturfing. This is work for the user, so make it concrete: which site,
+`references/visibility.md` and `references/backlinks.md` have the
+playbooks: reclaim first, then unlinked mentions, owned relationships, the
+gap, linkable assets and PR. Never buy links or astroturf. This is work for the user, so make it concrete: which site,
 what to do, and why it matters (it was cited for prompts N and M).
 
-### 8. Report
+### 9. Report
 
 Write `report.md`. Show the summary in the conversation. If an artifact or
 HTML page is available and the user wants one, render the report with a copy
@@ -296,15 +360,16 @@ button on every snippet.
 | Claim | Engines | Source to fix | Status |
 |---|---|---|---|
 
-## Off-site
-| Where | Why (cited for) | Action |
+## Links and off-site
+**Profile:** referring domains N (tool) · links to reclaim k · gap domains g
+| Where | Why (gap / cited for prompt N / reclaim) | Action |
 |---|---|---|
 
 ## Done in this session
 - files changed, checks run, what was verified live
 
 ## Measure again
-Re-run prompt set v1 and audit.py in 4–6 weeks (indexing and assistant caches
+Re-run prompt set v1, audit.py and crawl.py in 4–6 weeks (indexing and assistant caches
 lag; 30 days is the earliest anything shows) and compare like with like.
 
 ## Appendix
@@ -321,9 +386,11 @@ Not every request needs the whole run. Do the part asked, and mention in one
 line if the audit found a bigger blocker.
 
 - "Is my robots.txt blocking ChatGPT?" is step 3 on one site.
-- "Write this page so ChatGPT cites it" is steps 5–6 on one page.
+- "Find broken links on my site" is the crawl in step 3.
+- "Analyze my backlinks" or "who links to my competitors?" is step 5.
+- "Write this page so ChatGPT cites it" is steps 6–7 on one page.
 - "Why does ChatGPT say our price is wrong?" is the claim ledger.
-- "Add schema to the product pages" is one item of step 6.
+- "Add schema to the product pages" is one item of step 7.
 
 ## Pitfalls
 
