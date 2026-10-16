@@ -108,6 +108,23 @@
       "keywords": ["seo", "geo", "aeo", "ai-search", "chatgpt", "perplexity", "crawler", "backlinks", "schema"],
       "category": "marketing",
       "skills": ["./skills/seo-geo"]
+    },
+    {
+      "name": "docs-sync",
+      "source": "./",
+      "strict": false,
+      "description": "Create and update README.md and AGENTS.md so they match the code: a stdlib script inventories the repo and finds drift (dead commands, broken links and paths, stale env vars, oversized or duplicated agent files, what changed since each doc), then the skill makes the smallest accurate edit, keeps one home per fact (README for humans, AGENTS.md for agents, CLAUDE.md importing it), prunes instead of appending, never invents commands and verifies before reporting.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Juliano Sirtori",
+        "url": "https://github.com/julianosirtori"
+      },
+      "homepage": "https://github.com/julianosirtori/skills/tree/main/skills/docs-sync",
+      "repository": "https://github.com/julianosirtori/skills",
+      "license": "MIT",
+      "keywords": ["readme", "agents-md", "claude-md", "documentation", "docs", "drift", "sync"],
+      "category": "development",
+      "skills": ["./skills/docs-sync"]
     }
   ]
 }
