@@ -166,6 +166,9 @@ copying it:
   content to AGENTS.md (pruning it on the way) and leave the import in
   CLAUDE.md. Tell the user; this is a structural change, so confirm first
   when the file is shared by a team.
+- **Generated blocks** between markers (e.g. `<!-- BEGIN:nextjs-agent-rules -->`,
+  written by `next dev`) stay byte for byte. Move one only to the file its
+  generator writes to (read the generator), or it comes back as a diff.
 - **GEMINI.md, `.github/copilot-instructions.md`, `.cursor/rules`**: reduce to
   a pointer or tool-only rules when they duplicate AGENTS.md. If the repo
   syncs them with a generator (rulesync, Ruler...), edit the generator's

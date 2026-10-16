@@ -395,7 +395,7 @@ def check_env(doc, text, env_names, env_sources):
         mentioned.add(next(g for g in m.groups() if g))
     for line in text.splitlines():
         if ENV_LINE.search(line):
-            mentioned.update(re.findall(r"`([A-Z][A-Z0-9]*_[A-Z0-9_]+)`", line))
+            mentioned.update(re.findall(r"`([A-Z][A-Z0-9]*_[A-Z0-9_]*[A-Z0-9])`", line))  # not a prefix like NEXT_PUBLIC_
     skip = ("GITHUB_", "CI_", "NODE_", "npm_", "RUNNER_", "HOME", "PATH", "PWD", "USER", "SHELL")
     missing = sorted(n for n in mentioned - set(env_names) if not n.startswith(skip))
     issues = [f"{doc}: names env var {n}, not in {', '.join(env_sources)} (stale, or missing from the example file)"
