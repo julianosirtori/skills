@@ -62,8 +62,8 @@
       "name": "handoff",
       "source": "./",
       "strict": false,
-      "description": "End a session and continue in a fresh one without losing context: writes a self-contained handoff (goal, verified state, next steps, decisions, dead ends, user preferences, files to read, running processes, git snapshot) to .handoffs/, copies a short start prompt to the clipboard, and resumes by checking the handoff against the current code and git state.",
-      "version": "1.0.0",
+      "description": "End a session and continue in a fresh one without losing context: writes a self-contained handoff (goal, verified state, next steps, decisions, dead ends, user preferences, files to read, running processes, git snapshot) to .claude/handoffs/ or .agents/handoffs/ (in the project for coding projects, in the user's home otherwise), copies a short start prompt to the clipboard, and resumes by checking the handoff against the current code and git state.",
+      "version": "1.1.0",
       "author": {
         "name": "Juliano Sirtori",
         "url": "https://github.com/julianosirtori"

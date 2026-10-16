@@ -21,10 +21,12 @@ the diff). Link to it instead.
 
 <!-- The prompt the user pastes into the new session, word for word; it is also
      copied to the clipboard. One primary task, never a menu of options. Keep it
-     to 2–4 lines: everything else is below. -->
+     to 2–4 lines: everything else is below. <path> is .claude/handoffs or
+     .agents/handoffs in a project, ~/.claude/handoffs or ~/.agents/handoffs
+     otherwise. -->
 
 ```text
-Retome o trabalho do handoff .handoffs/<file>.md (skill handoff, modo resume): leia o arquivo inteiro antes de agir.
+Retome o trabalho do handoff <path>/<file>.md (skill handoff, modo resume): leia o arquivo inteiro antes de agir.
 Foco: <next focus>. Comece por: <step 1>.
 ```
 

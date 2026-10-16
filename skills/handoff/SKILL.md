@@ -1,11 +1,11 @@
 ---
 name: handoff
-description: End a coding-agent session cleanly and continue in a fresh one without losing context. Write mode saves a self-contained handoff file in the project (.handoffs/, kept out of git) with the goal, the verified state, next steps, decisions and why, dead ends, the user's preferences, files to read first, running processes, verify commands and a git snapshot. It then copies a short start prompt to the clipboard to paste after /clear. Resume mode loads the newest handoff, checks it against the current code and git state, reports what drifted and picks up the next step. Use this whenever the user wants to wrap up, hand off, continue later or in another session or agent, or says the context is full or long, or starts a session from a handoff, even if they never say "handoff" (e.g. "passa o bastão", "vou abrir outra sessão", "salva onde paramos", "contexto tá cheio", "continua de onde parou", "pega o último handoff", "wrap this up for a new session").
+description: End a coding-agent session cleanly and continue in a fresh one without losing context. Write mode saves a self-contained handoff in .claude/handoffs/ or .agents/handoffs/, in the project for coding projects (kept out of git) or in the user's home otherwise: goal, verified state, next steps, decisions and why, dead ends, user preferences, files to read first, running processes, verify commands and a git snapshot. It then copies a short start prompt to the clipboard to paste after /clear. Resume mode loads the newest handoff, checks it against the current code and git state, reports what drifted and picks up the next step. Use this whenever the user wants to wrap up, hand off, continue later or in another session or agent, or says the context is full or long, or starts a session from a handoff, even if they never say "handoff" (e.g. "passa o bastão", "vou abrir outra sessão", "salva onde paramos", "contexto tá cheio", "continua de onde parou", "pega o último handoff", "wrap this up for a new session").
 license: MIT
-compatibility: Any agent that reads SKILL.md. scripts/snapshot.sh needs bash and git (works outside git with less detail) and uses lsof and ps when present. scripts/clip.sh uses pbcopy, wl-copy, xclip, xsel or clip.exe, whichever exists.
+compatibility: Any agent that reads SKILL.md. scripts/handoff-dir.sh and scripts/snapshot.sh need bash; snapshot.sh needs git (works outside git with less detail) and uses lsof and ps when present. scripts/clip.sh uses pbcopy, wl-copy, xclip, xsel or clip.exe, whichever exists.
 metadata:
   author: julianosirtori
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Handoff
@@ -26,12 +26,35 @@ Talk to the user and write the handoff in the user's language.
 | The user says | Mode |
 |---|---|
 | `/handoff`, `/handoff <next focus>`, "passa o bastão", "vou abrir outra sessão", "salva onde paramos", "contexto tá cheio" | **write** |
-| `/handoff resume [file]`, "continua do handoff", "pega o último handoff", or a prompt that points to a `.handoffs/` file | **resume** |
+| `/handoff resume [file]`, "continua do handoff", "pega o último handoff", or a prompt that points to a handoff file | **resume** |
 
 Text after `/handoff` is the **focus of the next session** ("agora os testes de
 integração", "só o deploy"). It is the most useful input: extract what that
 next task needs instead of summarizing everything. With no focus, use the
 natural next step of the current work.
+
+## Where handoffs live
+
+Handoffs go in the agent's own folder, scoped to the project when there is one:
+
+| | Claude Code | Other agents |
+|---|---|---|
+| Coding project | `<project-root>/.claude/handoffs/` | `<project-root>/.agents/handoffs/` |
+| Anything else | `~/.claude/handoffs/` | `~/.agents/handoffs/` |
+
+A coding project is a git work tree, or the nearest folder below `$HOME` with a
+project marker (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`,
+`AGENTS.md`, `CLAUDE.md`, `.claude/`, `.agents/`...). `$HOME` itself is never
+a project. Don't decide this by hand. Run:
+
+```bash
+bash <skill-dir>/scripts/handoff-dir.sh <current-dir> <claude|agents>
+```
+
+Pass `claude` in Claude Code and `agents` anywhere else. The script is
+read-only and prints `scope=project|user`, `root=` (the project root, or the
+current directory in user scope), `dir=` (the handoff folder) and `git=yes|no`.
+Below, `<handoff-dir>` is that `dir` and `<project-root>` is that `root`.
 
 ## Write mode
 
@@ -67,10 +90,11 @@ matter, not a re-read of everything.
 
 ### 3. Write the file
 
-Path: `<project-root>/.handoffs/<YYYY-MM-DD-HHMM>-<slug>.md`. The slug is short
-kebab-case for the work (`checkout-retry`, `fix-login-timeout`). Get the
-timestamp with `date +%Y-%m-%d-%H%M`. Outside a git repo, use the current
-directory as the project root.
+Path: `<handoff-dir>/<YYYY-MM-DD-HHMM>-<slug>.md` (create the folder with
+`mkdir -p`). The slug is short kebab-case for the work (`checkout-retry`,
+`fix-login-timeout`). Get the timestamp with `date +%Y-%m-%d-%H%M`. In user
+scope, many folders share one handoff folder, so start the slug with the
+current folder's name (`notas-viagem-roteiro`).
 
 Follow `references/template.md`. Write the headings in the user's language,
 in the template's order, and paste the snapshot exactly as the script printed
@@ -108,19 +132,22 @@ first.
 ### 4. Keep it out of git
 
 The handoff is session state. It does not belong in commits or in
-`git status`. Add the folder to the repository's local exclude file. This
-changes no tracked file:
+`git status`. Exclude only the handoff folder, never all of `.claude/` or
+`.agents/`: projects often commit settings, skills and agents there. Add it to
+the repository's local exclude file, which changes no tracked file:
 
 ```bash
 root=<project-root>
-git -C "$root" check-ignore -q .handoffs/x.md || {
+sub=.claude/handoffs   # or .agents/handoffs, the folder handoff-dir.sh printed
+git -C "$root" check-ignore -q "$sub/x.md" || {
   exclude=$(git -C "$root" rev-parse --path-format=absolute --git-path info/exclude)
   mkdir -p "$(dirname "$exclude")"
-  echo '.handoffs/' >> "$exclude"
+  echo "/$sub/" >> "$exclude"
 }
 ```
 
-Skip this when the user wants handoffs committed or when it is not a git repo.
+Skip this when the user wants handoffs committed, or when `git=no` (user scope
+or a project outside git).
 
 ### 5. Leave the tree as it is
 
@@ -135,11 +162,13 @@ must hold the same text. Keep it to one primary task, never a menu, in 2–4
 lines:
 
 ```text
-Retome o trabalho do handoff .handoffs/<file>.md (skill handoff, modo resume): leia o arquivo inteiro antes de agir.
+Retome o trabalho do handoff <path>/<file>.md (skill handoff, modo resume): leia o arquivo inteiro antes de agir.
 Foco: <next focus>. Comece por: <step 1>.
 ```
 
-Write it in the user's language. Copy it with a quoted heredoc, so that
+`<path>` is relative to the project root in project scope
+(`.claude/handoffs/...`) and starts with `~/` in user scope, so the new session
+finds it from the same folder. Write it in the user's language. Copy it with a quoted heredoc, so that
 backticks and quotes in the prompt reach the clipboard unchanged:
 
 ```bash
@@ -156,7 +185,7 @@ in your message is how the user copies it.
 Keep it short:
 
 ````markdown
-Handoff salvo em `.handoffs/<file>.md` (<n> linhas).
+Handoff salvo em `<path>/<file>.md` (<n> linhas).
 
 <2–3 lines: where things stand and the next step>
 <If dirty: "<n> arquivos não commitados, listados no handoff. Quer um commit WIP antes?">
@@ -176,9 +205,19 @@ paste the prompt".
 
 ### 1. Pick the handoff
 
-Use the file the user named. Otherwise take the newest `.handoffs/*.md` (not
-the files in `archive/`). Ask which one only when several recent handoffs
-exist for different branches or tracks.
+Use the file the user named. Otherwise list the candidates, newest first:
+
+```bash
+bash <skill-dir>/scripts/handoff-dir.sh --list <current-dir>
+```
+
+It looks in the project's `.claude/handoffs/` and `.agents/handoffs/`, in the
+user's `~/.claude/handoffs/` and `~/.agents/handoffs/`, and in the old
+`<project-root>/.handoffs/` from version 1.0, skipping `archive/`. A handoff
+written by another agent is just as valid. Prefer the newest one whose
+snapshot `Directory` (or `Repo root`) matches the current folder: user-scope
+folders hold handoffs from many places. Ask which one only when several recent
+handoffs fit, for different branches or tracks.
 
 ### 2. Read it and check it against reality
 
@@ -237,7 +276,8 @@ Right after the briefing, move the file. That way "newest handoff" never
 returns a consumed one, even if this session ends early:
 
 ```bash
-mkdir -p <project-root>/.handoffs/archive && mv <project-root>/.handoffs/<file>.md <project-root>/.handoffs/archive/
+d=$(dirname <handoff-file>)
+mkdir -p "$d/archive" && mv <handoff-file> "$d/archive/"
 ```
 
 Nothing is deleted. If the user asks to clean up old handoffs, list them first
