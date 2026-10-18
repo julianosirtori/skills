@@ -125,6 +125,23 @@
       "keywords": ["readme", "agents-md", "claude-md", "documentation", "docs", "drift", "sync"],
       "category": "development",
       "skills": ["./skills/docs-sync"]
+    },
+    {
+      "name": "race-photo-edit",
+      "source": "./",
+      "strict": false,
+      "description": "Cull and edit running and street-race photos for sale (Foco Radical, Fotop): a script measures exposure, asphalt color cast, sharpness, EXIF and bursts and builds contact sheets; the agent rejects what will not sell, picks the best of each burst, groups by light, assigns presets with per-photo corrections, crops and optional background blur, writes every approved photo to an upload-ready folder without touching originals, and gives shooting feedback.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Juliano Sirtori",
+        "url": "https://github.com/julianosirtori"
+      },
+      "homepage": "https://github.com/julianosirtori/skills/tree/main/skills/race-photo-edit",
+      "repository": "https://github.com/julianosirtori/skills",
+      "license": "MIT",
+      "keywords": ["photography", "photo-editing", "running", "sports", "presets", "culling"],
+      "category": "productivity",
+      "skills": ["./skills/race-photo-edit"]
     }
   ]
 }
