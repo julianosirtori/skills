@@ -11,7 +11,7 @@
       "source": "./",
       "strict": false,
       "description": "Analyze and safely free up disk space on macOS: measures what uses storage, cleans only caches that rebuild themselves, finds leftovers of uninstalled apps and guides the removals that need your judgment.",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": {
         "name": "Juliano Sirtori",
         "url": "https://github.com/julianosirtori"

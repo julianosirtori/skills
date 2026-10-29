@@ -101,28 +101,41 @@ for spec in "$HOME/Library/Preferences" "$HOME/Library/Preferences/ByHost" "$HOM
   [ -d "$spec" ] && du -sk "$spec"/* 2>/dev/null
 done > "$ITEMS"
 awk -F'\t' -v home="$HOME" '
-  NR == FNR { app[$0] = 1; split($0, v, "."); vendor[v[1] "." v[2]] = 1; next }
+  FNR == 1 { file++ }
+  file == 1 { app[$0] = 1; split($0, v, "."); vendor[v[1] "." v[2]] = 1; next }
+  file == 2 { gsub(/[^a-z0-9]/, ""); if (length($0) >= 4) appname[$0] = 1; next }
+  file == 3 { team[$0] = 1; next }
   {
     path = $2; name = path; sub(/.*\//, "", name)
     sub(/\.(plist|savedState|binarycookies)$/, "", name)
     if (path ~ /\/ByHost\//) sub(/\.[0-9A-Fa-f-]{12,}$/, "", name)
-    id = tolower(name)
+    # "<TEAMID>.<id>" (app group scripts): owned while that team has an app installed.
+    if (name ~ /^[A-Z0-9]{10}\./ && name ~ /^[A-Z]*[0-9]/) {
+      if (substr(name, 1, 10) in team) next
+      name = substr(name, 12)
+    }
+    id = tolower(name); sub(/^groups?\./, "", id)
     if (id !~ /^[a-z0-9_-]+\.[a-z0-9_-]+\.[a-z0-9_.-]+$/) next
-    if (id ~ /^(com\.apple\.|group\.|systemgroup\.|apple\.)/) next
-    for (a in app) if (id == a || index(id, a ".") == 1 || index(a, id ".") == 1) next
-    split(id, v, ".")
-    kb[id] += $1; n[id]++
+    # macOS itself, printing, and frameworks/SDKs that many apps embed.
+    if (id ~ /^(com\.apple\.|apple\.|developer\.apple\.|systemgroup\.|org\.cups\.|org\.sparkle-project\.|org\.cef\.|org\.jcef\.|com\.plausiblelabs\.|com\.crashlytics\.|com\.firebase\.|io\.branch\.|com\.hackemist\.|com\.segment\.)/ || id ~ /\.com\.apple\./) next
+    split(id, v, "."); vend = v[1] "." v[2]
+    for (a in app) if (id == a || index(id, a ".") == 1 || index(a, id ".") == 1) { owned[vend] = 1; next }
+    # Apps with no bundle id or an installer-made one (Stardew Valley, IRPF):
+    # the id ends with the app name ("com.concernedape.stardewvalley").
+    k = split(id, part, "."); last = part[k]; gsub(/[^a-z0-9]/, "", last)
+    if (length(last) >= 4) for (a in appname) if (index(a, last) == 1) { owned[vend] = 1; next }
+    kb[id] += $1; n[id]++; vendor_of[id] = vend
     if (index(path, home "/") != 1) sys[id] = 1
-    if ((v[1] "." v[2]) in vendor) shared[id] = 1
     sub("^" home, "~", path); paths[id] = paths[id] "\037            " path
   }
   END {
     for (id in kb) {
-      note = (sys[id] ? " [all users: sudo]" : "") (shared[id] ? " [shared: vendor still installed]" : "")
+      shared = (vendor_of[id] in vendor) || (vendor_of[id] in owned)
+      note = (sys[id] ? " [all users: sudo]" : "") (shared ? " [shared: vendor still installed]" : "")
       h = kb[id] >= 1048576 ? sprintf("%.1f GB", kb[id] / 1048576) : kb[id] >= 1024 ? sprintf("%.0f MB", kb[id] / 1024) : kb[id] " KB"
       printf "%d\t%10s  %s (%d item%s)%s%s\n", kb[id], h, id, n[id], (n[id] > 1 ? "s" : ""), note, paths[id]
     }
-  }' "$IDS" "$ITEMS" | sort -t$'\t' -k1,1rn | head -40 | cut -f2- | tr '\037' '\n'
+  }' "$IDS" "$NAMES" "$TEAMS" "$ITEMS" | sort -t$'\t' -k1,1rn | head -40 | cut -f2- | tr '\037' '\n'
 
 section "Launch agents/daemons pointing to programs that no longer exist"
 for plist in "$HOME/Library/LaunchAgents"/*.plist /Library/LaunchAgents/*.plist /Library/LaunchDaemons/*.plist; do

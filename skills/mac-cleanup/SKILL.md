@@ -5,7 +5,7 @@ license: MIT
 compatibility: macOS 13 or later. Uses the stock bash 3.2, du, df, mdfind, plutil and codesign; optionally brew, npm, pnpm, pip, jq and sqlite3 when present.
 metadata:
   author: julianosirtori
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # Mac Cleanup
