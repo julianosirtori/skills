@@ -12,36 +12,45 @@ later block the vendor's uninstaller. This is the procedure that avoids that.
 
 ## General procedure
 
-1. **Confirm it is unused and not needed by something else.** Ask the user; for
+1. **Check it can be removed now.** Apple's own apps (`/System/Applications`,
+   bundle ids starting with `com.apple.`) are part of macOS: don't remove them.
+   If the app is open (`pgrep -x "<App Name>"`), ask the user to quit it first,
+   or files in use break and come back. App Store and pkg-installed apps are often
+   root-owned: move them with Finder so macOS asks for the password itself
+   (`osascript -e 'tell application "Finder" to delete POSIX file "/Applications/Foo.app"'`).
+2. **Confirm it is unused and not needed by something else.** Ask the user; for
    CLIs check `brew uses --installed <formula>`; for frameworks check what links
    to them.
-2. **Use the vendor's uninstaller** if one exists: inside the app's folder in
+3. **Use the vendor's uninstaller** if one exists: inside the app's folder in
    `/Applications`, in `/Applications/Utilities`, or in the app's own menu. These
    remove helpers, drivers and launch daemons that dragging misses.
-3. **Otherwise move the bundle to the Trash** (`/usr/bin/trash /Applications/Foo.app`
+4. **Otherwise move the bundle to the Trash** (`/usr/bin/trash /Applications/Foo.app`
    or Finder). Root-owned bundles make Finder ask for the password, which is fine.
-4. **Sweep leftovers** (`scripts/leftovers.sh` finds most of them), matching by
+5. **Sweep leftovers** (`scripts/leftovers.sh` finds most of them), matching by
    bundle id (`defaults read /Applications/Foo.app/Contents/Info.plist CFBundleIdentifier`)
    and by name:
    - `~/Library/Application Support/<App>` and `/Library/Application Support/<App>`
    - `~/Library/Containers/<bundle-id>*`, `~/Library/Group Containers/*<id or team>*`
    - `~/Library/Caches/<bundle-id>*`, `~/Library/HTTPStorages/<bundle-id>*`, `~/Library/WebKit/<bundle-id>`
-   - `~/Library/Preferences/<bundle-id>*.plist`, `~/Library/Saved Application State/<bundle-id>.savedState`
+   - `~/Library/Preferences/<bundle-id>*.plist`, `~/Library/Preferences/ByHost/<bundle-id>.<UUID>.plist`,
+     `~/Library/Saved Application State/<bundle-id>.savedState`
+   - `~/Library/Cookies/<bundle-id>.binarycookies`, `~/Library/Application Scripts/<bundle-id>*`
+   - System-wide copies: `/Library/Caches`, `/Library/Preferences`, `/Library/Logs` (root-owned)
    - `~/Library/Logs/<App>`
    - Launch agents/daemons: `~/Library/LaunchAgents`, `/Library/LaunchAgents`, `/Library/LaunchDaemons`
    - Privileged helpers: `/Library/PrivilegedHelperTools/<bundle-id>*`
    - Package receipts: `pkgutil --pkgs | grep -i <vendor>`
    Move user-owned items to the Trash; show their size before and after.
-5. **Stop orphaned background services before deleting their plists.**
+6. **Stop orphaned background services before deleting their plists.**
    - User agent: `launchctl bootout gui/$(id -u)/<label>` (no sudo needed, even for
      agents in `/Library/LaunchAgents`).
    - System daemon: `sudo launchctl bootout system/<label>` (the user runs it).
    - A service whose program is missing keeps relaunching and failing
      (`launchctl print gui/$(id -u)/<label>` shows `last exit code = 78: EX_CONFIG`).
-6. **Root-owned leftovers**: hand the user a single command, e.g.
+7. **Root-owned leftovers**: hand the user a single command, e.g.
    `! sudo rm -rf "/Library/Application Support/Foo" /Library/LaunchDaemons/com.foo.helper.plist && sudo pkgutil --forget com.foo.pkg`
    and tell them `Forgot package 'com.foo.pkg' on '/'` means success.
-7. **Verify**: re-run `leftovers.sh` or `ls` the paths, and re-measure free space.
+8. **Verify**: re-run `leftovers.sh` or `ls` the paths, and re-measure free space.
 
 ## When the uninstaller fails
 

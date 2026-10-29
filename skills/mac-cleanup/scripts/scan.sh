@@ -2,9 +2,10 @@
 # scan.sh - read-only disk usage report for macOS.
 # Never deletes or modifies anything except its own history file.
 #
-# Usage: scan.sh [--no-history] [--min-mb N]
+# Usage: scan.sh [--no-history] [--min-mb N] [--large-mb N]
 #   --no-history  do not record this run in the history file
 #   --min-mb N    hide entries smaller than N MB (default 100)
+#   --large-mb N  list personal files of at least N MB (default 500)
 #
 # History lives in ${XDG_STATE_HOME:-~/.local/state}/mac-cleanup/history.tsv,
 # so the next run can show what grew since the last one.
@@ -13,12 +14,14 @@
 set -u
 
 MIN_MB=100
+LARGE_MB=500
 RECORD=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --no-history) RECORD=0 ;;
     --min-mb) shift; MIN_MB="${1:-100}" ;;
-    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+    --large-mb) shift; LARGE_MB="${1:-500}" ;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
@@ -76,6 +79,11 @@ df -k "$DATA_VOL" | awk 'NR==2 {
   printf "size %.0f GB | used %.0f GB | free %.1f GB (%s used)\n", $2/1048576, $3/1048576, $4/1048576, $5 }'
 remember "free space" "$(df -k "$DATA_VOL" | awk 'NR==2 {print $4}')"
 echo "Trash: $(human "$(du -skx "$HOME/.Trash" 2>/dev/null | awk '{print $1}')")"
+# Files deleted from an external drive go to that drive's own Trash.
+for vol in /Volumes/*; do
+  t="$vol/.Trashes/$(id -u)"
+  [ -d "$t" ] && [ ! "$vol" -ef / ] && echo "Trash on $(basename "$vol"): $(human "$(du -skx "$t" 2>/dev/null | awk '{print $1}')")"
+done
 SNAPS=$(tmutil listlocalsnapshots / 2>/dev/null | grep -c 'com.apple')
 echo "APFS local snapshots: $SNAPS (Time Machine / OS-update snapshots hold space until macOS purges them)"
 
@@ -111,12 +119,17 @@ iPhone/iPad backups (Finder)|$HOME/Library/Application Support/MobileSync/Backup
 Xcode DerivedData|$HOME/Library/Developer/Xcode/DerivedData
 Xcode Archives|$HOME/Library/Developer/Xcode/Archives
 iOS DeviceSupport|$HOME/Library/Developer/Xcode/iOS DeviceSupport
+watchOS DeviceSupport|$HOME/Library/Developer/Xcode/watchOS DeviceSupport
+macOS DeviceSupport|$HOME/Library/Developer/Xcode/macOS DeviceSupport
+visionOS DeviceSupport|$HOME/Library/Developer/Xcode/visionOS DeviceSupport
 iOS Simulators|$HOME/Library/Developer/CoreSimulator/Devices
+Simulator caches|$HOME/Library/Developer/CoreSimulator/Caches
 Docker Desktop disk image|$HOME/Library/Containers/com.docker.docker
 Android SDK|$HOME/Library/Android/sdk
 Android emulators|$HOME/.android/avd
 npm cache|$HOME/.npm
 pnpm store|$HOME/Library/pnpm/store
+Bun cache|$HOME/.bun/install/cache
 Yarn cache|$HOME/Library/Caches/Yarn
 pip cache|$HOME/Library/Caches/pip
 Homebrew downloads cache|$HOME/Library/Caches/Homebrew
@@ -124,11 +137,16 @@ Homebrew install|/opt/homebrew
 Gradle caches|$HOME/.gradle/caches
 CocoaPods cache|$HOME/Library/Caches/CocoaPods
 Cargo registry|$HOME/.cargo/registry
+CLI caches ~/.cache (may hold models)|$HOME/.cache
+Hugging Face models|$HOME/.cache/huggingface
+Ollama models|$HOME/.ollama/models
 Go module cache|$HOME/go/pkg/mod
 Playwright browsers|$HOME/Library/Caches/ms-playwright
 VS Code extensions|$HOME/.vscode/extensions
 VS Code extension installers cache|$HOME/Library/Application Support/Code/CachedExtensionVSIXs
 Cursor extensions|$HOME/.cursor/extensions
+All app caches|$HOME/Library/Caches
+App logs and crash reports|$HOME/Library/Logs
 Chrome cache|$HOME/Library/Caches/Google/Chrome
 Chrome profiles|$HOME/Library/Application Support/Google/Chrome
 Chrome updater cache|$HOME/Library/Application Support/Google/GoogleUpdater/crx_cache
@@ -171,10 +189,31 @@ if [ -d "$HOME/Downloads" ]; then
       base="${a%.*}"; base="${base%.tar}"
       [ -d "$base" ] && printf '%10s  %s\n' "$(human "$(du -sk "$a" | awk '{print $1}')")" "$(tilde "$a")"
     done
+  echo "Interrupted downloads (.download, .crdownload, .part, .partial, .opdownload):"
+  find "$HOME/Downloads" -mindepth 1 -maxdepth 2 \( -iname '*.download' -o -iname '*.crdownload' -o -iname '*.part' \
+    -o -iname '*.partial' -o -iname '*.opdownload' \) -prune 2>/dev/null |
+    while read -r f; do printf '%10s  %s\n' "$(human "$(du -sk "$f" | awk '{print $1}')")" "$(tilde "$f")"; done
   echo "Installers (.dmg / .pkg):"
   find "$HOME/Downloads" -maxdepth 2 -type f \( -iname '*.dmg' -o -iname '*.pkg' \) 2>/dev/null |
     while read -r f; do printf '%10s  %s\n' "$(human "$(du -sk "$f" | awk '{print $1}')")" "$(tilde "$f")"; done
 fi
+
+# ---------------------------------------------------------------- large files
+# Personal files outside ~/Library (caches and app data are covered above).
+# "last used" is Spotlight's kMDItemLastUsedDate, falling back to modification.
+# A dataless file lives only in iCloud: deleting it frees nothing locally.
+section "Large files in the home folder (>= $LARGE_MB MB, outside Library)"
+NOW_S=$(date +%s)
+find "$HOME" -xdev \( -path "$HOME/Library" -o -path "$HOME/.Trash" -o -name '*.photoslibrary' -o -name node_modules \
+  -o -name .git \) -prune -o -type f -size +"$((LARGE_MB * 2048))" -print 2>/dev/null | while read -r f; do
+  printf '%s\t%s\n' "$(stat -f %z "$f")" "$f"
+done | sort -rn | head -20 | while IFS=$'\t' read -r bytes f; do
+  used=$(mdls -raw -name kMDItemLastUsedDate "$f" 2>/dev/null)
+  case "$used" in ""|"(null)") used_s=$(stat -f %m "$f") ;; *) used_s=$(date -j -f '%Y-%m-%d %H:%M:%S %z' "$used" +%s 2>/dev/null || stat -f %m "$f") ;; esac
+  note=""
+  case "$(stat -f %Sf "$f")" in *dataless*) note="  (in iCloud only, not on this Mac)" ;; esac
+  printf '%10s  %5sd unused  %s%s\n' "$(human $((bytes / 1024)))" $(( (NOW_S - used_s) / 86400 )) "$(tilde "$f")" "$note"
+done
 
 # ---------------------------------------------------------------- dev
 section "node_modules (days since last install)"

@@ -20,7 +20,8 @@ section() { printf '\n== %s ==\n' "$1"; }
 IDS="$(mktemp -t mac-cleanup-ids)"
 NAMES="$(mktemp -t mac-cleanup-names)"
 TEAMS="$(mktemp -t mac-cleanup-teams)"
-trap 'rm -f "$IDS" "$NAMES" "$TEAMS"' EXIT
+ITEMS="$(mktemp -t mac-cleanup-items)"
+trap 'rm -f "$IDS" "$NAMES" "$TEAMS" "$ITEMS"' EXIT
 
 # plutil prints its errors on stdout, so only echo the value when it succeeds.
 plist_get() { local v; v=$(plutil -extract "$1" raw -o - "$2" 2>/dev/null) && printf '%s' "$v"; }
@@ -87,6 +88,41 @@ for d in "$HOME/Library/Application Support"/*; do
   grep -qiF ".$lname" "$IDS" && continue
   printf '%10s  %s\n' "$(human "$k")" "$(tilde "$d")"
 done
+
+section "Library items named after bundle ids of apps no longer installed - verify"
+# Preferences, caches, logs, saved state, cookies, web data and privileged
+# helpers are named after the app's bundle id (plus .plist, .savedState,
+# .binarycookies or, in ByHost, a hardware UUID). Matched by name only, so
+# nothing here is certain: "shared" means the vendor still has an app installed.
+for spec in "$HOME/Library/Preferences" "$HOME/Library/Preferences/ByHost" "$HOME/Library/Caches" \
+  "$HOME/Library/Logs" "$HOME/Library/Saved Application State" "$HOME/Library/Application Scripts" \
+  "$HOME/Library/HTTPStorages" "$HOME/Library/WebKit" "$HOME/Library/Cookies" \
+  /Library/Caches /Library/Preferences /Library/Logs /Library/PrivilegedHelperTools; do
+  [ -d "$spec" ] && du -sk "$spec"/* 2>/dev/null
+done > "$ITEMS"
+awk -F'\t' -v home="$HOME" '
+  NR == FNR { app[$0] = 1; split($0, v, "."); vendor[v[1] "." v[2]] = 1; next }
+  {
+    path = $2; name = path; sub(/.*\//, "", name)
+    sub(/\.(plist|savedState|binarycookies)$/, "", name)
+    if (path ~ /\/ByHost\//) sub(/\.[0-9A-Fa-f-]{12,}$/, "", name)
+    id = tolower(name)
+    if (id !~ /^[a-z0-9_-]+\.[a-z0-9_-]+\.[a-z0-9_.-]+$/) next
+    if (id ~ /^(com\.apple\.|group\.|systemgroup\.|apple\.)/) next
+    for (a in app) if (id == a || index(id, a ".") == 1 || index(a, id ".") == 1) next
+    split(id, v, ".")
+    kb[id] += $1; n[id]++
+    if (index(path, home "/") != 1) sys[id] = 1
+    if ((v[1] "." v[2]) in vendor) shared[id] = 1
+    sub("^" home, "~", path); paths[id] = paths[id] "\037            " path
+  }
+  END {
+    for (id in kb) {
+      note = (sys[id] ? " [all users: sudo]" : "") (shared[id] ? " [shared: vendor still installed]" : "")
+      h = kb[id] >= 1048576 ? sprintf("%.1f GB", kb[id] / 1048576) : kb[id] >= 1024 ? sprintf("%.0f MB", kb[id] / 1024) : kb[id] " KB"
+      printf "%d\t%10s  %s (%d item%s)%s%s\n", kb[id], h, id, n[id], (n[id] > 1 ? "s" : ""), note, paths[id]
+    }
+  }' "$IDS" "$ITEMS" | sort -t$'\t' -k1,1rn | head -40 | cut -f2- | tr '\037' '\n'
 
 section "Launch agents/daemons pointing to programs that no longer exist"
 for plist in "$HOME/Library/LaunchAgents"/*.plist /Library/LaunchAgents/*.plist /Library/LaunchDaemons/*.plist; do

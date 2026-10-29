@@ -27,8 +27,11 @@ C = do not touch) and the right way to shrink it.
 
 | Path | Tier | Notes |
 |---|---|---|
-| `Caches/` | A, mostly | Per-app caches, rebuilt on demand. Clean the big ones by name instead of wiping the whole folder (some apps keep login state there). Exceptions below. |
-| `Caches/CloudKit` | C | iCloud's local cache (`com.apple.bird` = iCloud Drive). Shrinks by itself when Optimize Mac Storage is on. Deleting it forces resyncs. |
+| `Caches/` | A, mostly | Per-app caches, rebuilt on demand. Clean the big ones by name first. Wiping the rest (`safe-clean.sh --only user-caches`) is fine once the apps are quit, but a few apps keep login state there, so it is opt-in. It skips open apps and the exceptions below. |
+| `Caches/CloudKit`, `Caches/com.apple.bird`, `com.apple.akd`, `FamilyCircle` | C | iCloud and Apple Account state (`com.apple.bird` = iCloud Drive). Shrinks by itself when Optimize Mac Storage is on. Deleting it forces resyncs. |
+| `Caches/com.apple.nsurlsessiond`, `com.apple.HomeKit`, `com.apple.containermanagerd`, `com.apple.ap.adprivacyd` | C | System daemons' state (background downloads in flight, Home, container registry). Leave them alone. |
+| `Logs/` | A | App logs and crash reports (`DiagnosticReports`). Disposable; usually small. |
+| `Preferences/`, `Saved Application State/`, `HTTPStorages/`, `WebKit/`, `Cookies/`, `Application Scripts/` | B | One item per bundle id. Belongs to the app; only items of apps that are gone are leftovers (`leftovers.sh` lists them). |
 | `Caches/Google/Chrome` | A | Browser cache. Quit Chrome (Cmd+Q) first. |
 | `Caches/ms-playwright` | B | Browser binaries for Playwright tests; re-downloaded by `npx playwright install` (hundreds of MB each). |
 | `Application Support/` | B | Real app data (databases, projects, settings). Look inside before anything; some subfolders are pure cache (`Cache`, `Code Cache`, `GPUCache`, `CachedData`, `CachedExtensionVSIXs`). |
@@ -41,6 +44,7 @@ C = do not touch) and the right way to shrink it.
 | `Biome/` | C | macOS Siri, Spotlight and Screen Time data. Large `streams/restricted/ProactiveHarvesting.Mail` means Siri is learning from Mail: System Settings → Siri (or Apple Intelligence & Siri) → Apps → Mail → turn off "Learn from this App", and macOS prunes it over time. |
 | `Suggestions/`, `DuetExpertCenter/`, `IntelligencePlatform/` | C | Other macOS on-device intelligence stores. |
 | `Messages/` | B | iMessage attachments. Settings → General → Keep messages, or delete large attachments in Messages → Settings. |
+| `Keychains/`, `CloudStorage/` | C | Passwords and certificates; Dropbox/Google Drive/OneDrive file-provider folders. Never delete; manage cloud files in their apps. |
 | `Mail/` | C (by hand) | Mail's database. Shrink by deleting mail or turning off "download attachments" in Mail settings, never by deleting files. |
 | `Developer/` | A/B | Xcode data; see [Xcode](#xcode). |
 
@@ -126,11 +130,12 @@ C = do not touch) and the right way to shrink it.
 | `node_modules` | B | Recreated by `npm/pnpm/yarn install`, but it takes time and network. Good candidates: projects untouched for months. |
 | Xcode DerivedData | A | `~/Library/Developer/Xcode/DerivedData`, with Xcode closed. |
 | Xcode Archives | B | Needed to symbolicate crashes of shipped builds. |
-| iOS DeviceSupport | A/B | One folder per iOS version ever connected; old versions are safe to remove. |
-| Simulators | A/B | `xcrun simctl delete unavailable` is A. Deleting runtimes or devices with data is B. |
+| iOS/watchOS/macOS/visionOS DeviceSupport | A | One folder per OS version ever connected (several GB each). Xcode copies the symbols again the next time that device connects, which takes a few minutes. |
+| Simulators | A/B | `~/Library/Developer/CoreSimulator/Caches` and `xcrun simctl delete unavailable` are A. Deleting runtimes or devices with data is B. |
 | Docker Desktop | B | The disk image (`Containers/com.docker.docker`) only shrinks via `docker system prune` (add `-a` for unused images, `--volumes` deletes data volumes; ask) or Docker Desktop → Troubleshoot → Clean / Purge data. |
 | Android | B | `~/Library/Android/sdk` system images and `~/.android/avd` emulators via Android Studio's SDK / Device Manager. |
-| Gradle, CocoaPods, Cargo, Go caches | A | `~/.gradle/caches`, `~/Library/Caches/CocoaPods`, `~/.cargo/registry`, `go clean -modcache`. |
+| Gradle, CocoaPods, Cargo, Bun, Go caches | A | `~/.gradle/caches` (after `gradle --stop`), `~/Library/Caches/CocoaPods`, `~/.cargo/registry/cache`, `~/.bun/install/cache`, `go clean -modcache`. |
+| `~/.cache` | B | Shared cache folder of command-line tools. Mostly disposable, but it may hold downloaded AI models (`huggingface`, `torch`, `whisper`, `lm-studio`) that take long to fetch again: list the subfolders and ask. Same for `~/.ollama/models`. |
 | VS Code / Cursor extensions | A | The editor lists replaced or uninstalled extension folders in `extensions/.obsolete`; folders listed there and absent from `extensions.json` can go (`safe-clean.sh` moves them to the Trash). |
 | Claude Code `~/.local/share/claude/versions` | leave | Claude Code manages its own versions; don't delete the running one. |
 
@@ -141,6 +146,14 @@ C = do not touch) and the right way to shrink it.
   already installed, duplicates of the same document in several formats, and items
   untouched for months.
 - Before proposing that an archive is redundant, check the extracted folder exists.
+- Interrupted downloads (`.download` from Safari, `.crdownload` from Chrome,
+  `.part`/`.partial` from Firefox and others, `.opdownload` from Opera) are A once
+  untouched for a day; a recent one may still be downloading.
+- `scan.sh` lists the largest personal files outside `~/Library` with days since
+  last use. A file marked "in iCloud only" frees nothing locally if deleted, and
+  deleting it removes it from every device.
+- External drives keep their own Trash (`/Volumes/<drive>/.Trashes/<uid>`);
+  emptying the Trash in Finder clears them too while the drive is connected.
 
 ## System-wide locations
 

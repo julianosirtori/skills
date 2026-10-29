@@ -5,7 +5,7 @@ license: MIT
 compatibility: macOS 13 or later. Uses the stock bash 3.2, du, df, mdfind, plutil and codesign; optionally brew, npm, pnpm, pip, jq and sqlite3 when present.
 metadata:
   author: julianosirtori
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Mac Cleanup
@@ -28,9 +28,9 @@ Classify every finding before suggesting anything:
 
 | Tier | What | How to act |
 |---|---|---|
-| **A. Regenerable** | Caches and build artifacts that tools recreate on demand (npm/pnpm/pip/Homebrew caches, Xcode DerivedData, `CachedExtensionVSIXs`, obsolete editor extensions, browser caches, updater download caches) | Show the list with sizes, ask once, then clean with `scripts/safe-clean.sh --apply`. |
-| **B. User's call** | Documents, downloads, media, chats, apps, projects, `node_modules`, Homebrew formulae, browser profiles | Explain size and consequence. Act only on what the user picks. Prefer the Trash; uninstall apps the proper way (see `references/uninstall.md`). |
-| **C. Do not touch** | Inside `*.photoslibrary`, `~/Library/Biome`, `~/Library/Caches/CloudKit`, `com.apple.*` containers, the sealed system volume (`/System`, `/usr` except `/usr/local`), `/Library/Developer/CommandLineTools`, `/Library/Updates` | Explain why it is off-limits and the supported alternative, if any. |
+| **A. Regenerable** | Caches and build artifacts that tools recreate on demand (npm/pnpm/pip/Bun/Gradle/Cargo/Homebrew caches, Xcode DerivedData and DeviceSupport, simulator caches, `CachedExtensionVSIXs`, obsolete editor extensions, browser caches, updater download caches), app logs, interrupted downloads | Show the list with sizes, ask once, then clean with `scripts/safe-clean.sh --apply`. |
+| **B. User's call** | Documents, downloads, large old files, media, chats, apps, projects, `node_modules`, Homebrew formulae, browser profiles, `~/.cache` (may hold AI models), leftovers matched only by name | Explain size and consequence. Act only on what the user picks. Prefer the Trash; uninstall apps the proper way (see `references/uninstall.md`). |
+| **C. Do not touch** | Inside `*.photoslibrary`, `~/Library/Mail`, `Messages`, `Keychains`, `Mobile Documents`, `CloudStorage`, `~/Library/Biome`, iCloud/account caches (`CloudKit`, `com.apple.bird`, `com.apple.akd`, `FamilyCircle`), `com.apple.*` containers, the sealed system volume (`/System`, `/usr` except `/usr/local`), `/Library/Developer/CommandLineTools`, `/Library/Updates` | Explain why it is off-limits and the supported alternative, if any. |
 
 `references/locations.md` says which tier each common location belongs to and the
 right way to shrink it. Read the relevant section before advising on a location
@@ -51,6 +51,11 @@ you have not verified in this session.
   which people often read as an error.
 - **Quit before cleaning an app's cache.** Check with `pgrep -x "<App Name>"`;
   deleting Chrome's, Xcode's or an Electron app's cache while it runs can break it.
+  `safe-clean.sh` skips the caches of open apps on its own.
+- **Never aim a deletion at a protected path**, even when a cleanup seems to call
+  for it: anything outside the home folder, a top-level folder itself (`~/Library`,
+  `~/Library/Caches`, `~/Downloads`), or the personal stores listed in tier C. The
+  scripts refuse these; do the same for commands you write by hand.
 - **Shared Macs.** Browser profiles, Photos libraries and home-folder data may
   belong to someone else. Name whose data it appears to be and leave it alone
   unless the user confirms.
@@ -71,12 +76,15 @@ in the background if you can):
 bash <skill-dir>/scripts/scan.sh
 ```
 
-It prints free space, the Trash, the biggest folders in the home folder,
-`~/Library` and its main subfolders, `/Applications`, `/Library`, a list of known
-hotspots, Downloads candidates (old items, already-extracted archives, installers),
-`node_modules` with days since last install, the largest Homebrew formulae and
-what depends on them, and **what changed since the previous scan** (history in
-`~/.local/state/mac-cleanup/`). Use `--min-mb N` to see smaller items.
+It prints free space, the Trash (including external drives' Trash), the biggest
+folders in the home folder, `~/Library` and its main subfolders, `/Applications`,
+`/Library`, a list of known hotspots, Downloads candidates (old items,
+already-extracted archives, interrupted downloads, installers), the largest
+personal files outside `~/Library` with days since last use (marking those that
+live only in iCloud), `node_modules` with days since last install, the largest
+Homebrew formulae and what depends on them, and **what changed since the
+previous scan** (history in `~/.local/state/mac-cleanup/`). Use `--min-mb N` to
+see smaller items and `--large-mb N` to change the large-file threshold (default 500 MB).
 
 If many folders read as 0 or "Operation not permitted", the terminal lacks Full
 Disk Access: System Settings → Privacy & Security → Full Disk Access.
@@ -104,8 +112,14 @@ bash <skill-dir>/scripts/safe-clean.sh --apply  # after the user agrees
 ```
 
 `--list` shows the targets; `--only a,b` / `--skip a,b` select them. It skips
-browser and Xcode caches while those apps are open — ask the user to quit them
-(Cmd+Q) and run it again if worthwhile.
+browser, Xcode, Simulator and Gradle caches while those are running — ask the user
+to quit them (Cmd+Q) and run it again if worthwhile. Interrupted downloads go to
+the Trash, and only after a day without changes.
+
+`user-caches` (everything else in `~/Library/Caches`) is opt-in: it runs only
+with `--only user-caches`. Offer it when the named caches were not enough and
+the user can quit their apps; it skips open apps and iCloud/account caches, but a
+few apps keep a login there and will ask to sign in again.
 
 ### 4. Leftovers of removed apps
 
@@ -114,11 +128,15 @@ bash <skill-dir>/scripts/leftovers.sh
 ```
 
 Read-only. Finds containers and group containers with no installed app, large
-Application Support folders that match no app, launch agents/daemons whose program
+Application Support folders that match no app, preferences, caches, logs, saved
+state, cookies, web data and privileged helpers named after bundle ids no
+installed app owns (grouped per app, flagged "shared" when the vendor still has
+an app installed and "all users" when root-owned), launch agents/daemons whose program
 is gone (they keep failing in the background), broken command-line links,
 unreferenced Logi Options+ update depots, and Adobe products still registered after
-their files were deleted. These are candidates: confirm each one (bundle id, path,
-`ls`, contents) before proposing removal, and follow `references/uninstall.md`.
+their files were deleted. These are candidates: matching is by name, so present
+them unselected, confirm each one (bundle id, path, `ls`, contents) before
+proposing removal, and follow `references/uninstall.md`.
 
 ### 5. Guided decisions (tier B)
 

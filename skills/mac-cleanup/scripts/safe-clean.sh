@@ -4,8 +4,9 @@
 #
 # Usage: safe-clean.sh [--apply] [--only id,id] [--skip id,id] [--list]
 #
-# Nothing here touches documents, media, app data or settings. Caches are
-# deleted; obsolete editor extension folders are moved to the Trash.
+# Nothing here touches documents, media, app data or settings. Caches and logs
+# are deleted; obsolete editor extension folders and incomplete downloads are
+# moved to the Trash. Opt-in targets (see --list) run only when named in --only.
 # Compatible with the stock macOS bash 3.2.
 
 set -u
@@ -13,7 +14,15 @@ set -u
 APPLY=0
 ONLY=""
 SKIP=""
-TARGETS="npm pnpm yarn pip brew dev-caches xcode-derived vscode-vsix vscode-obsolete chrome-updater chrome-cache"
+TARGETS="npm pnpm yarn pip brew bun gradle cargo dev-caches xcode-derived xcode-device-support simulator-caches vscode-vsix vscode-obsolete chrome-updater chrome-cache user-logs incomplete-downloads"
+OPTIN="user-caches"
+# Tool caches in ~/Library/Caches cleared by dev-caches (user-caches skips them).
+DEV_CACHES="node-gyp pnpm dotslash goimports staticcheck typescript go-build CocoaPods deno"
+# Never cleared by user-caches: iCloud, Apple account and download daemons whose
+# caches hold state that is not rebuilt, or are rebuilt only after a resync.
+KEEP_CACHES="CloudKit com.apple.bird com.apple.akd FamilyCircle com.apple.HomeKit com.apple.ap.adprivacyd com.apple.containermanagerd com.apple.nsurlsessiond"
+# Suffixes of downloads that never finished (Safari, Chrome, Firefox, Opera...).
+PARTIAL_EXT="download crdownload part partial opdownload"
 
 describe() {
   case "$1" in
@@ -22,12 +31,20 @@ describe() {
     yarn) echo "Yarn classic cache (yarn cache clean)" ;;
     pip) echo "pip download cache (pip cache purge)" ;;
     brew) echo "Homebrew downloads and old versions (brew cleanup --prune=all)" ;;
+    bun) echo "Bun package cache (~/.bun/install/cache)" ;;
+    gradle) echo "Gradle dependency and build caches (~/.gradle/caches; skipped while Gradle runs)" ;;
+    cargo) echo "Cargo downloaded crate archives (~/.cargo/registry/cache)" ;;
     dev-caches) echo "build/tool caches in ~/Library/Caches (node-gyp, go-build, CocoaPods, dotslash...)" ;;
     xcode-derived) echo "Xcode DerivedData build products (skipped while Xcode runs)" ;;
+    xcode-device-support) echo "Xcode iOS/watchOS/macOS/visionOS DeviceSupport (re-copied when a device connects)" ;;
+    simulator-caches) echo "CoreSimulator caches (skipped while Simulator runs)" ;;
     vscode-vsix) echo "VS Code / Cursor cached extension installers (.vsix)" ;;
     vscode-obsolete) echo "VS Code / Cursor extension folders the editor marked obsolete (to Trash)" ;;
     chrome-updater) echo "Google Updater downloaded update packages" ;;
     chrome-cache) echo "Chrome browser cache (skipped while Chrome runs)" ;;
+    user-logs) echo "App logs and crash reports in ~/Library/Logs" ;;
+    incomplete-downloads) echo "Interrupted downloads in ~/Downloads untouched for a day (to Trash)" ;;
+    user-caches) echo "OPT-IN: every other app cache in ~/Library/Caches, except open apps and iCloud/account caches" ;;
   esac
 }
 
@@ -36,7 +53,7 @@ while [ $# -gt 0 ]; do
     --apply) APPLY=1 ;;
     --only) shift; ONLY=",${1:-},"; ;;
     --skip) shift; SKIP=",${1:-},"; ;;
-    --list) for t in $TARGETS; do printf '%-16s %s\n' "$t" "$(describe "$t")"; done; exit 0 ;;
+    --list) for t in $TARGETS $OPTIN; do printf '%-22s %s\n' "$t" "$(describe "$t")"; done; exit 0 ;;
     -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
@@ -65,15 +82,32 @@ size_kb() { # total KB of the given paths
   echo "$total"
 }
 
-# Delete cache directories. Guards: only paths inside $HOME, never $HOME itself.
+# True for paths that must never be deleted or trashed: anything outside the
+# home folder, the top-level Library folders themselves, and personal stores
+# (mail, messages, keychains, iCloud Drive, cloud storage, Photos libraries).
+protected() {
+  case "$1" in
+    "$HOME"/?*) ;;
+    *) return 0 ;;
+  esac
+  case "${1%/}" in
+    */..|*/../*|*/.|*/./*) return 0 ;;
+    "$HOME/Library"|"$HOME/Library/Caches"|"$HOME/Library/Logs"|"$HOME/Library/Application Support"|"$HOME/Downloads") return 0 ;;
+    "$HOME/Library/Mail"|"$HOME/Library/Mail"/*|"$HOME/Library/Messages"|"$HOME/Library/Messages"/*) return 0 ;;
+    "$HOME/Library/Keychains"|"$HOME/Library/Keychains"/*) return 0 ;;
+    "$HOME/Library/Mobile Documents"|"$HOME/Library/Mobile Documents"/*) return 0 ;;
+    "$HOME/Library/CloudStorage"|"$HOME/Library/CloudStorage"/*) return 0 ;;
+    *.photoslibrary|*.photoslibrary/*) return 0 ;;
+  esac
+  return 1
+}
+
+# Delete cache directories. Guards: only unprotected paths inside $HOME.
 remove_paths() {
   local p
   for p in "$@"; do
     [ -e "$p" ] || continue
-    case "$p" in
-      "$HOME"/?*) ;;
-      *) echo "  refusing to delete outside home: $p" >&2; continue ;;
-    esac
+    if protected "$p"; then echo "  refusing to delete protected path: $p" >&2; continue; fi
     chmod -R u+w "$p" 2>/dev/null   # some tools (dotslash) extract read-only files
     rm -rf "$p"
   done
@@ -83,6 +117,7 @@ to_trash() {
   local p
   for p in "$@"; do
     [ -e "$p" ] || continue
+    if protected "$p"; then echo "  refusing to trash protected path: $p" >&2; continue; fi
     if [ -x /usr/bin/trash ]; then
       /usr/bin/trash "$p"
     else
@@ -92,6 +127,43 @@ to_trash() {
 }
 
 running() { pgrep -x "$1" >/dev/null 2>&1; }
+
+# Lowercased bundle ids and names of open apps, one per line.
+open_apps() {
+  lsappinfo list 2>/dev/null | sed -nE 's/^ *[0-9]+\) "([^"]+)".*/\1/p; s/.*bundleID="([^"]+)".*/\1/p' |
+    tr '[:upper:]' '[:lower:]' | sort -u
+}
+
+# Entries of ~/Library/Caches for user-caches: not kept, not handled by another
+# target, and not belonging to an open app (exact name, or the app id followed
+# by a suffix such as ".ShipIt").
+other_caches() {
+  local open e name lname skipped
+  open=$(open_apps)
+  for e in "$HOME/Library/Caches"/* "$HOME/Library/Caches"/.[!.]*; do
+    [ -e "$e" ] || continue
+    name=${e##*/}
+    case " $KEEP_CACHES $DEV_CACHES pip Google Homebrew Yarn " in *" $name "*) continue ;; esac
+    lname=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
+    skipped=$(printf '%s\n' "$open" | awk -v c="$lname" '$0 != "" && (c == $0 || index(c, $0 ".") == 1) { print; exit }')
+    if [ -n "$skipped" ]; then
+      [ "$(size_kb "$e")" -ge 10240 ] && printf '  %-10s %9s  %-22s %s\n' "skipped" "$(human "$(size_kb "$e")")" "user-caches" "$name: app open" >&2
+      continue
+    fi
+    printf '%s\n' "$e"
+  done
+}
+
+# Interrupted downloads in ~/Downloads (two levels) not modified for a day,
+# so a download still in progress is never touched.
+partial_downloads() {
+  local ext args=""
+  for ext in $PARTIAL_EXT; do args="$args -o -iname *.$ext"; done
+  set -f
+  # shellcheck disable=SC2086 # the name tests are split on purpose; globbing is off
+  find "$HOME/Downloads" -mindepth 1 -maxdepth 2 \( -false $args \) -mtime +0 -prune -print 2>/dev/null
+  set +f
+}
 
 json_keys_or_paths() { # $1 = mode (installed|obsolete), $2 = extensions dir
   local dir="$2"
@@ -129,10 +201,22 @@ TOTAL_KB=0
 report() { # id, kb, note
   local verb="would free"
   [ "$APPLY" -eq 1 ] && verb="freed"
-  printf '  %-10s %9s  %-16s %s\n' "$verb" "$(human "$2")" "$1" "${3:-$(describe "$1")}"
+  printf '  %-10s %9s  %-22s %s\n' "$verb" "$(human "$2")" "$1" "${3:-$(describe "$1")}"
   TOTAL_KB=$((TOTAL_KB + $2))
 }
-skip() { printf '  %-10s %9s  %-16s %s\n' "skipped" "-" "$1" "$2"; }
+skip() { printf '  %-10s %9s  %-22s %s\n' "skipped" "-" "$1" "$2"; }
+
+# Measure a newline-separated list of paths, delete (or trash) them with
+# --apply, and set before/after. $1 = remove_paths|to_trash, $2 = list.
+act_on_list() {
+  local IFS=$'\n'
+  # shellcheck disable=SC2086 # split on newlines on purpose
+  before=$(size_kb $2)
+  # shellcheck disable=SC2086
+  [ "$APPLY" -eq 1 ] && $1 $2
+  # shellcheck disable=SC2086
+  after=$(size_kb $2)
+}
 
 # Each target measures its paths, acts only with --apply, then reports.
 clean() {
@@ -174,9 +258,32 @@ clean() {
       else
         report brew "$before" "Homebrew download cache; old versions also removed (size known after --apply)"; return
       fi ;;
+    bun)
+      local bc="$HOME/.bun/install/cache"
+      [ -d "$bc" ] || { skip bun "no Bun cache"; return; }
+      before=$(size_kb "$bc")
+      if [ "$APPLY" -eq 1 ]; then
+        if command -v bun >/dev/null; then bun pm cache rm >/dev/null 2>&1 || remove_paths "$bc"
+        else remove_paths "$bc"; fi
+      fi
+      after=$(size_kb "$bc") ;;
+    gradle)
+      local gc="$HOME/.gradle/caches"
+      [ -d "$gc" ] || { skip gradle "no Gradle caches"; return; }
+      pgrep -f GradleDaemon >/dev/null 2>&1 && { skip gradle "a Gradle daemon is running - stop it with: gradle --stop"; return; }
+      before=$(size_kb "$gc")
+      [ "$APPLY" -eq 1 ] && remove_paths "$gc"
+      after=$(size_kb "$gc") ;;
+    cargo)
+      local rc="$HOME/.cargo/registry/cache"
+      [ -d "$rc" ] || { skip cargo "no Cargo download cache"; return; }
+      running cargo && { skip cargo "cargo is running"; return; }
+      before=$(size_kb "$rc")
+      [ "$APPLY" -eq 1 ] && remove_paths "$rc"
+      after=$(size_kb "$rc") ;;
     dev-caches)
       local c paths=""
-      for c in node-gyp pnpm dotslash goimports staticcheck typescript go-build CocoaPods deno; do
+      for c in $DEV_CACHES; do
         [ -e "$HOME/Library/Caches/$c" ] && paths="$paths
 $HOME/Library/Caches/$c"
       done
@@ -196,6 +303,22 @@ $HOME/Library/Caches/$c"
       before=$(size_kb "$dd")
       [ "$APPLY" -eq 1 ] && remove_paths "$dd"
       after=$(size_kb "$dd") ;;
+    xcode-device-support)
+      local os ds=""
+      for os in iOS watchOS macOS visionOS; do
+        [ -d "$HOME/Library/Developer/Xcode/$os DeviceSupport" ] && ds="$ds
+$HOME/Library/Developer/Xcode/$os DeviceSupport"
+      done
+      [ -n "$ds" ] || { skip xcode-device-support "no DeviceSupport folders"; return; }
+      running Xcode && { skip xcode-device-support "Xcode is running - quit it first"; return; }
+      act_on_list remove_paths "$ds" ;;
+    simulator-caches)
+      local sc="$HOME/Library/Developer/CoreSimulator/Caches"
+      [ -d "$sc" ] || { skip simulator-caches "no CoreSimulator caches"; return; }
+      running Simulator && { skip simulator-caches "Simulator is running - quit it first"; return; }
+      before=$(size_kb "$sc")
+      [ "$APPLY" -eq 1 ] && remove_paths "$sc"
+      after=$(size_kb "$sc") ;;
     vscode-vsix)
       local v1="$HOME/Library/Application Support/Code/CachedExtensionVSIXs" v2="$HOME/Library/Application Support/Cursor/CachedExtensionVSIXs"
       before=$(size_kb "$v1" "$v2")
@@ -230,6 +353,27 @@ $HOME/Library/Caches/$c"
       before=$(size_kb "$cc")
       [ "$APPLY" -eq 1 ] && remove_paths "$cc"
       after=$(size_kb "$cc") ;;
+    user-logs)
+      local logs="" l
+      for l in "$HOME/Library/Logs"/* "$HOME/Library/Logs"/.[!.]*; do
+        # keep this skill's own history (references/automation.md writes it)
+        [ -e "$l" ] && [ "${l##*/}" != mac-cleanup.log ] && logs="$logs
+$l"
+      done
+      [ -n "$logs" ] || { skip user-logs "no logs"; return; }
+      act_on_list remove_paths "$logs" ;;
+    incomplete-downloads)
+      local parts; parts=$(partial_downloads)
+      [ -n "$parts" ] || { skip incomplete-downloads "none found"; return; }
+      act_on_list to_trash "$parts"
+      local n; n=$(printf '%s\n' "$parts" | wc -l | tr -d ' ')
+      if [ "$APPLY" -eq 1 ]; then report incomplete-downloads $((before - after)) "$n interrupted download(s) moved to Trash"
+      else report incomplete-downloads "$before" "$n interrupted download(s) to move to Trash"; fi
+      return ;;
+    user-caches)
+      local others; others=$(other_caches)
+      [ -n "$others" ] || { skip user-caches "nothing else to clean"; return; }
+      act_on_list remove_paths "$others" ;;
   esac
   if [ "$APPLY" -eq 1 ]; then report "$id" $((before - after)); else report "$id" "$before"; fi
 }
@@ -241,8 +385,12 @@ FREE_BEFORE=$(df -k "$DATA_VOL" | awk 'NR==2 {print $4}')
 if [ "$APPLY" -eq 1 ]; then echo "Cleaning (caches rebuild themselves when needed):"
 else echo "Dry run - nothing is deleted. Re-run with --apply to clean:"; fi
 
-for t in $TARGETS; do
-  case "$ONLY" in ""|*",$t,"*) ;; *) continue ;; esac
+for t in $TARGETS $OPTIN; do
+  case "$ONLY" in
+    *",$t,"*) ;;
+    "") case " $OPTIN " in *" $t "*) continue ;; esac ;;
+    *) continue ;;
+  esac
   case "$SKIP" in *",$t,"*) continue ;; esac
   clean "$t"
 done
